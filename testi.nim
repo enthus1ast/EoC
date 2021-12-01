@@ -5,6 +5,8 @@ import json
 import tables
 import print
 import strformat
+import std/monotimes
+import std/times
 
 var screenWidth = 800
 var screenHeight = 450
@@ -16,11 +18,19 @@ setTargetFPS(60)
 import netty, os, flatty
 
 type
+
+  Player = object # is player == crit (critter)?
+    id: Id
+    oldpos: Vector2 # we tween from oldpos
+    pos: Vector2    # to newpos in a "server tick time step"
+    lastmove: MonoTime
+
   GClient = ref object
     nclient: Reactor
     clientState: ClientState
     c2s: Connection
-    players: Table[Id, Vector2]
+    # players: Table[Id, Vector2]
+    players: Table[Id, Player]
     myPlayerId: Id
     connected: bool
 
@@ -34,7 +44,7 @@ type
 var gclient = GClient()
 gclient.clientState = MAIN_MENU # we start in the main menu
 gclient.nclient = newReactor()
-gclient.players = initTable[Id, Vector2]()
+gclient.players = initTable[Id, Player]()
 gclient.myPlayerId = 0
 gclient.connected = false
 gclient.moveid = 0
@@ -89,15 +99,22 @@ proc mainLoop(gclient: GClient) =
         # print PLAYER_CONNECTED
         let res = fromFlatty(gmsg.data, GResPlayerConnected)
         if res.playerId != gclient.myPlayerId:
-          gclient.players[res.playerId] = res.pos
+          var player = Player()
+          player.id = res.playerId
+          player.oldpos = res.pos # on connect set both equal
+          player.pos = res.pos # on connect set both equal
+          player.lastmove = getMonoTime()
+          # gclient.players[res.playerId].pos = res.pos # TODO
+          gclient.players[res.playerId] = player
       of PLAYER_DISCONNECTED:
         print PLAYER_DISCONNECTED
         let disco = fromFlatty(gmsg.data, GResPlayerDisconnects)
         print disco
         gclient.players.del(disco.playerId) # = res.pos
+        print gclient.players
       of PLAYER_MOVED:
+        print "moved"
         let res = fromFlatty(gmsg.data, GResPlayerMoved)
-        gclient.players[res.playerId] = res.pos
         if res.playerId == gclient.myPlayerId:
           # It is one move from us.
           # We look in our stored moves
@@ -118,6 +135,11 @@ proc mainLoop(gclient: GClient) =
               # gclient.players[res.playerId] = res.pos
               gclient.moves = initTable[int32, Vector2]()
             discard
+        else:
+          ## A move for other players / crit
+          gclient.players[res.playerId].oldpos = gclient.players[res.playerId].pos
+          gclient.players[res.playerId].pos = res.pos # TODO
+          gclient.players[res.playerId].lastmove = getMonoTime()
 
 
       else:
@@ -187,7 +209,7 @@ proc mainLoop(gclient: GClient) =
         gclient.sendKeepalive()
 
     beginDrawing()
-
+    drawText("FPS: " & $getFPS() , 0, getScreenHeight() - 10, 10, Darkgray)
     case gclient.clientState
     of MAIN_MENU:
       clearBackground(Yellow)
@@ -208,13 +230,31 @@ proc mainLoop(gclient: GClient) =
       let text = fmt"Connecting to server: {gclient.txtServer}"
       drawText(text, 10, 10, 20, Black)
     of MAP:
+      let curTime = getMonoTime()
       clearBackground(Raywhite)
       let mousePos = getMousePosition()
       drawCircle(playerPos.x.int, playerPos.y.int, 5, LIGHTGRAY)
       drawCircle(mousePos.x.int, mousePos.y.int, 3, RED)
       # draw all other players
-      for id, pos in gclient.players:
-        drawCircle(pos.x.int, pos.y.int, 5, RED)
+      for id, player in gclient.players:
+
+        try:
+          ## We must interpolate between the `oldpos` and the `newpos`
+          let dif = (curTime - player.lastmove).inMilliseconds.int.clamp(0, 50_000)
+          let serverTickTime = 200.int # TODO ~5fps
+          let percent = dif / serverTickTime
+          print (curTime - player.lastmove).inMilliseconds, dif, percent
+          print("after")
+          let moveVec = player.pos - player.oldpos
+
+          let interpolated =  player.oldpos + (moveVec * percent)
+          # drawCircle(player.pos.x.int, player.pos.y.int, 5, RED)
+          drawCircle(interpolated.x.int, interpolated.y.int, 5, RED)
+        except:
+          echo getCurrentExceptionMsg()
+        # print dif
+
+
       # drawText("FRAME SPEED: ", 165, 210, 10, Darkgray)
       drawText("Unacknowledged moves: " & $gclient.moves.len , 10, 10, 10, Darkgray)
     endDrawing()
