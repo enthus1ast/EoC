@@ -5,12 +5,24 @@ import shared
 import flatty
 import tables
 import nimraylib_now/mangled/raylib # Vector2
+import nimraylib_now/mangled/raymath # Vector2
 
-var players = initTable[Id, Connection]()
+
+type
+  Player = object
+    id: Id
+    connection: Connection
+    pos: Vector2
+
+var players = initTable[Id, Player]()
+
+
+# proc sendToAllClients(server: Reactor, )
 
 
 # listen for a connection on localhost port 1999
 var server = newReactor("127.0.0.1", 1999)
+
 echo "Listenting for UDP on 127.0.0.1:1999"
 # main loop
 while true:
@@ -22,23 +34,46 @@ while true:
   server.tick()
   for connection in server.newConnections:
     echo "[new] ", connection.address
-    players[connection.id] = connection
+
+    var player = Player()
+    player.id = connection.id
+    player.connection = connection
+    player.pos = Vector2(x: 10, y: 10) # TODO
+    players[connection.id] = player
+
+    # send the new connecting player his id
     let fgResYourIdIs = toFlatty(GResYourIdIs(playerId: connection.id))
     server.send(connection, toFlatty(GMsg(kind: YOUR_ID_IS, data: fgResYourIdIs)))
 
+    # update the new connected player about all the other players
+    # TODO this should not be a move but a GResPlayerConnected
+    # let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id))
+    # server.send(player, toFlatty(GMsg(kind: PLAYER_CONNECTED, data: fgResPlayerConnected)))
+    for id, player in players:
+      if id != connection.id:
+        let res = GResPlayerConnected(playerId: id, pos: player.pos)
+        let fres = toFlatty(res)
+        server.send(connection, toFlatty(GMsg(kind: PLAYER_CONNECTED, data: fres)))
+
+
+    # tell every other player about the new connected player
     let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id))
     for player in server.connections:
       # server.send(player, "Player connected:" & $connection.id)
       server.send(player, toFlatty(GMsg(kind: PLAYER_CONNECTED, data: fgResPlayerConnected)))
+
+
   for connection in server.deadConnections:
     echo "[dead] ", connection.address
     players.del(connection.id)
     # for player in server.connections:
-    for id, connection in players:
-      # server.send(player, "Player leaves:" & $connection.id)
-      let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: connection.id))
-      server.send(connection, toFlatty(GMsg(kind: PLAYER_DISCONNECTED, data: fgResPlayerDisconnects)))
+    for id, player in players:
+      # server.send(player, "Player leaves:" & $player.id)
+      let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: id))
+      server.send(player.connection, toFlatty(GMsg(kind: PLAYER_DISCONNECTED, data: fgResPlayerDisconnects)))
 
+
+  sleep(100)
 
   for msg in server.messages:
     # print message data
@@ -55,15 +90,29 @@ while true:
       print PLAYER_DISCONNECTED
     of PLAYER_MOVED:
       # print PLAYER_MOVED
-      var pos = fromFlatty(gmsg.data, Vector2)
-      # print pos
-      let res = GResPlayerMoved(playerId: msg.conn.id, pos: pos)
+      var req = fromFlatty(gmsg.data, GReqPlayerMoved)
+      print req
+
+      ## Test vector.
+      if abs(req.vec.x) > 1 or abs(req.vec.y) > 1:
+        echo "invalid move"
+        # inform the "cheating" / desynced player
+      else:
+        players[msg.conn.id].pos += req.vec
+
+      let res = GResPlayerMoved(playerId: msg.conn.id, pos: players[msg.conn.id].pos, moveId: req.moveId)
       let fres = toFlatty(res)
-      for id, conn in players:
-        if id != msg.conn.id:
-          server.send(conn, toFlatty(GMsg(kind: PLAYER_MOVED, data: fres)))
+      for id, player in players:
+        # if id != msg.conn.id:
+        server.send(player.connection, toFlatty(GMsg(kind: PLAYER_MOVED, data: fres)))
     else:
       print "UNKNOWN"
+
+    # Send position updates regardless of previous move TODO good?
+    # for id, player in players:
+    #   # if id != msg.conn.id:
+    #   for id, player in players:
+    #   server.send(player.connection, toFlatty(GMsg(kind: PLAYER_MOVED, data: fres)))
 
     # echo "GOT MESSAGE: ", msg.data
     # echo message back to the client

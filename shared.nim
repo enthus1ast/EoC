@@ -7,6 +7,11 @@ import nimraylib_now/mangled/raylib # Vector2
 #   PLAYER_MOVED* = 2
 
 type
+  ClientState* = enum
+    MAIN_MENU
+    CONNECTING
+    MAP
+
   GMsgKind* = enum
     UNKNOWN = 0'u16
     KEEPALIVE
@@ -20,14 +25,18 @@ type
     kind*: GMsgKind
     data*: string
 
-  GReqPlayerMoved* = Vector2
+  GReqPlayerMoved* = object
+    moveId*: int32
+    vec*: Vector2
   GResPlayerMoved* = object
     playerId*: Id
+    moveId*: int32
     pos*: Vector2
 
   GReqPlayerConnected* = object
   GResPlayerConnected* = object
     playerId*: Id
+    pos*: Vector2
   GResYourIdIs* = object
     playerId*: Id
 
