@@ -70,6 +70,9 @@ proc sendKeepalive(gclient: GClient) =
     # echo "send keepalive"
     gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
 
+func myPlayer(gclient: GClient): var Player =
+  gclient.players[gclient.myPlayerId]
+
 # proc recv[T](gclient: GClient): T =
 #   discard
 # proc send[T](gclient: GClient, obj: T) =
@@ -79,7 +82,7 @@ proc mainLoop(gclient: GClient) =
   initPhysics()
 
   var idx = 0
-  var playerPos = Vector2(x: 10, y: 10) # TODO this could come from players with our user id
+  # var playerPos = Vector2(x: 10, y: 10) # TODO this could come from players with our user id
   var moved = false
 
   gclient.connect() ## Autoconnect for faster testing
@@ -98,21 +101,21 @@ proc mainLoop(gclient: GClient) =
         let res = fromFlatty(gmsg.data, GResServerInfo)
         gclient.targetServerFps = res.targetServerFps
       of Kind_YourIdIs:
-        print gclient.myPlayerId
         let res = fromFlatty(gmsg.data, GResYourIdIs)
         gclient.myPlayerId = res.playerId
+        print gclient.myPlayerId
         gclient.clientState = MAP
       of Kind_PlayerConnected:
         # print PLAYER_CONNECTED
         let res = fromFlatty(gmsg.data, GResPlayerConnected)
-        if res.playerId != gclient.myPlayerId:
-          var player = Player()
-          player.id = res.playerId
-          player.oldpos = res.pos # on connect set both equal
-          player.pos = res.pos # on connect set both equal
-          player.lastmove = getMonoTime()
-          # gclient.players[res.playerId].pos = res.pos # TODO
-          gclient.players[res.playerId] = player
+        # if res.playerId != gclient.myPlayerId:
+        var player = Player()
+        player.id = res.playerId
+        player.oldpos = res.pos # on connect set both equal
+        player.pos = res.pos # on connect set both equal
+        player.lastmove = getMonoTime()
+        # gclient.players[res.playerId].pos = res.pos # TODO
+        gclient.players[res.playerId] = player
       of Kind_PlayerDisconnects:
         print Kind_PlayerDisconnects
         let disco = fromFlatty(gmsg.data, GResPlayerDisconnects)
@@ -138,7 +141,7 @@ proc mainLoop(gclient: GClient) =
               echo "LOCAL :", gclient.moves[res.moveId]
               ## TODO replay moves
               ## TODO currently we just reset
-              playerPos = res.pos
+              gclient.myPlayer().pos = res.pos
               # gclient.players[res.playerId] = res.pos
               gclient.moves = initTable[int32, Vector2]()
             discard
@@ -203,12 +206,12 @@ proc mainLoop(gclient: GClient) =
       let gReqPlayerMoved = GReqPlayerMoved(moveId: gclient.moveId, vec: moveVector)
 
       # Client prediction set position even if not aknowleged
-      playerPos += moveVector
+      gclient.myPlayer().pos += moveVector
 
       gmsg.data = toFlatty(gReqPlayerMoved)
       gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
       # gclient.moves[gclient.moveId] = gReqPlayerMoved
-      gclient.moves[gclient.moveId] = playerPos
+      gclient.moves[gclient.moveId] = gclient.myPlayer().pos
 
 
     if gclient.clientState == CONNECTING or gclient.clientState == MAP: ## TODO
@@ -240,7 +243,7 @@ proc mainLoop(gclient: GClient) =
       let curTime = getMonoTime()
       clearBackground(Raywhite)
       let mousePos = getMousePosition()
-      drawCircle(playerPos.x.int, playerPos.y.int, 5, LIGHTGRAY)
+      # drawCircle(playerPos.x.int, playerPos.y.int, 5, LIGHTGRAY)
       drawCircle(mousePos.x.int, mousePos.y.int, 3, RED)
       # draw all other players
       for id, player in gclient.players:
