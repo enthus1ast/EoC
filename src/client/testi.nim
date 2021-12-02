@@ -3,6 +3,9 @@ import systemDraw
 import netlib
 import assetLoader
 
+
+
+
 const CLIENT_VERSION = 2
 
 var screenWidth = 800
@@ -42,22 +45,16 @@ var txtServerDefault = "127.0.0.1"
 copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.len)
 
 
+# gclient.circle = createPhysicsBodyCircle((screenWidth.float/2.0, screenHeight.float/2.0), 45.0, 10.0)
 
 # proc recv[T](gclient: GClient): T =
 #   discard
+
 # proc send[T](gclient: GClient, obj: T) =
 #   discard
 
 # proc drawPlayer(gclient: GClient, player: Player) =
 #   if player.id == gclient.myPlayerId:
-
-#   drawText($player.id, player.pos.x.int, player.pos.y.int, 10, Blue)
-#   drawCircle(player.pos.x.int, player.pos.y.int, 5, RED)
-
-
-
-
-
 
 proc mainLoop(gclient: GClient) =
   initPhysics()
@@ -67,10 +64,12 @@ proc mainLoop(gclient: GClient) =
   var moved = false
 
   gclient.connect() ## Autoconnect for faster testing
-
-
+  var circle: PhysicsBody # TODO test
   while not windowShouldClose(): ##  Detect window close button or ESC key
     poll(1)
+
+    # updatePhysics()
+
     moved = false
     idx.inc
     gclient.nclient.tick()

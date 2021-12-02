@@ -8,9 +8,7 @@ var screenHeight = 450
 proc systemDraw*(gclient: GClient) =
   # var testSprite: Texture2D = loadTexture(getAppDir() / "assets/img/test.png")
   beginDrawing()
-
-
-
+  # echo gclient.circle.position
   for idx, msg in enumerate(gclient.serverMessages):
     drawText( $msg , 0, 0 + ((screenHeight div 2) + (15 * idx)), 10, Darkgray)
 
@@ -75,6 +73,8 @@ proc systemDraw*(gclient: GClient) =
         except:
           echo getCurrentExceptionMsg()
       # print dif
+
+
     endMode2D()
 
 

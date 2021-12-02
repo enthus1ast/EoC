@@ -1,7 +1,7 @@
 import netty
 import print
 import os
-import shared
+import ../shared
 import flatty
 import tables
 import nimraylib_now/mangled/raylib # Vector2
@@ -30,6 +30,7 @@ var gserver = GServer()
 gserver.players = initTable[Id, Player]()
 gserver.server = newReactor("127.0.0.1", 1999)
 gserver.config = loadConfig(getAppDir() / "serverConfig.ini")
+echo "Listenting for UDP on 127.0.0.1:1999"
 
 func configure(gserver: GServer) =
   gserver.targetServerFps = gserver.config.getSectionValue("net", "targetServerFps").parseInt().uint8
@@ -39,9 +40,8 @@ proc dumpConnectedPlayers(gserver: GServer) =
   for id, player in gserver.players:
     print id, player.pos
 
-echo "Listenting for UDP on 127.0.0.1:1999"
-
-proc sendToAllClients(gserver: GServer, gmsg: GMsg) =
+proc sendToAllClients*(gserver: GServer, gmsg: GMsg) =
+  ## Sends a `GMsg` to all clients connected to the server
   let msg = toFlatty(gmsg)
   for id, player in gserver.players:
     gserver.server.send(player.connection, msg)

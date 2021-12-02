@@ -1,6 +1,6 @@
 import math
 import nimraylib_now
-import shared
+import ../shared
 import json
 import tables
 import print
@@ -12,7 +12,6 @@ import asyncdispatch
 import chatbox
 import netty, os, flatty
 import typesAssetLoader
-
 
 export math
 export nimraylib_now
@@ -59,3 +58,6 @@ type
     camera*: Camera2D
 
     assets*: AssetLoader
+
+    # circle*: PhysicsBody # TODO test
+    # bodies*: seq[PhysicsBody]
