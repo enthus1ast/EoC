@@ -4,7 +4,7 @@ import nimraylib_now/mangled/raylib # Vector2
 # const
 #   PLAYER_CONNECTED* = 0
 #   PLAYER_DISCONNECTED* = 1
-#   PLAYER_MOVED* = 2
+#   KindGReqPlayerMoved* = 2
 
 type
   ClientState* = enum
@@ -13,12 +13,13 @@ type
     MAP
 
   GMsgKind* = enum
-    UNKNOWN = 0'u16
-    KEEPALIVE
-    PLAYER_CONNECTED
-    PLAYER_DISCONNECTED
-    PLAYER_MOVED
-    YOUR_ID_IS
+    Kind_UNKNOWN = 0'u16
+    Kind_KEEPALIVE
+    Kind_PlayerConnected
+    Kind_PlayerDisconnects
+    Kind_PlayerMoved
+    Kind_YourIdIs
+    Kind_ServerInfo
 
   Id* = uint32
   GMsg* = object
@@ -43,3 +44,10 @@ type
   GResPlayerDisconnects* = object
     playerId*: Id
 
+  GResServerInfo* = object
+    targetServerFps*: uint8
+
+func calculateFrameTime*(targetFps: int | uint8): int =
+  ## calculates the time a frame must take
+  ## when on `targetFps`
+  return (1000 / targetFps.int).int

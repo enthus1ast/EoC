@@ -8,8 +8,9 @@ import nimraylib_now/mangled/raylib # Vector2
 import nimraylib_now/mangled/raymath # Vector2
 import std/monotimes
 import std/times
-
-const TARGET_FPS = 5
+import std/parsecfg
+import std/strutils
+import std/random
 
 type
   Player = object
@@ -19,10 +20,21 @@ type
   GServer = ref object
     players: Table[Id, Player]
     server: Reactor
+    config: Config
+    targetServerFps: uint8
 
 var gserver = GServer()
 gserver.players = initTable[Id, Player]()
 gserver.server = newReactor("127.0.0.1", 1999)
+gserver.config = loadConfig(getAppDir() / "serverConfig.ini")
+
+func configure(gserver: GServer) =
+  gserver.targetServerFps = gserver.config.getSectionValue("net", "targetServerFps").parseInt().uint8
+
+proc dumpConnectedPlayers(gserver: GServer) =
+  echo "Connected players: ", gserver.players.len
+  for id, player in gserver.players:
+    print id, player.pos
 
 echo "Listenting for UDP on 127.0.0.1:1999"
 
@@ -31,7 +43,6 @@ proc sendToAllClients(gserver: GServer, gmsg: GMsg) =
   for id, player in gserver.players:
     gserver.server.send(player.connection, msg)
 
-# main loop
 
 proc main(gserver: GServer, delta: float) =
   # sleep(250)
@@ -46,12 +57,18 @@ proc main(gserver: GServer, delta: float) =
     var player = Player()
     player.id = connection.id
     player.connection = connection
-    player.pos = Vector2(x: 10, y: 10) # TODO
+    player.pos = Vector2(x: (rand(50) + 20).float, y: (rand(50) + 20).float) # TODO
     gserver.players[connection.id] = player
+
+    gserver.dumpConnectedPlayers()
+
+    # send the new connecting player the server info
+    let fGResServerInfo = toFlatty(GResServerInfo(targetServerFps: gserver.targetServerFps))
+    gserver.server.send(connection, toFlatty(GMsg(kind: Kind_ServerInfo, data: fGResServerInfo)))
 
     # send the new connecting player his id
     let fgResYourIdIs = toFlatty(GResYourIdIs(playerId: connection.id))
-    gserver.server.send(connection, toFlatty(GMsg(kind: YOUR_ID_IS, data: fgResYourIdIs)))
+    gserver.server.send(connection, toFlatty(GMsg(kind: Kind_YourIdIs, data: fgResYourIdIs)))
 
     # update the new connected player about all the other players
     # TODO this should not be a move but a GResPlayerConnected
@@ -61,24 +78,25 @@ proc main(gserver: GServer, delta: float) =
       if id != connection.id:
         let res = GResPlayerConnected(playerId: id, pos: player.pos)
         let fres = toFlatty(res)
-        gserver.server.send(connection, toFlatty(GMsg(kind: PLAYER_CONNECTED, data: fres)))
+        gserver.server.send(connection, toFlatty(GMsg(kind: Kind_PlayerConnected, data: fres)))
 
 
     # tell every other player about the new connected player
     let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id))
     for player in gserver.server.connections:
       # server.send(player, "Player connected:" & $connection.id)
-      gserver.server.send(player, toFlatty(GMsg(kind: PLAYER_CONNECTED, data: fgResPlayerConnected)))
+      gserver.server.send(player, toFlatty(GMsg(kind: Kind_PlayerConnected, data: fgResPlayerConnected)))
 
 
   for connection in gserver.server.deadConnections:
-    echo "[dead] ", connection.address
+    print "[dead] ", connection.address, connection.id
     gserver.players.del(connection.id)
+    gserver.dumpConnectedPlayers()
     # for player in server.connections:
     for id, player in gserver.players:
       # server.send(player, "Player leaves:" & $player.id)
       let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: id))
-      gserver.server.send(player.connection, toFlatty(GMsg(kind: PLAYER_DISCONNECTED, data: fgResPlayerDisconnects)))
+      gserver.server.send(player.connection, toFlatty(GMsg(kind: Kind_PlayerDisconnects, data: fgResPlayerDisconnects)))
 
 
 
@@ -87,14 +105,14 @@ proc main(gserver: GServer, delta: float) =
     # Try to unpack
     var gmsg = fromFlatty(msg.data, GMsg)
     case gmsg.kind
-    of KEEPALIVE:
+    of Kind_KEEPALIVE:
       discard
-    of PLAYER_CONNECTED:
-      print PLAYER_CONNECTED
-    of PLAYER_DISCONNECTED:
-      print PLAYER_DISCONNECTED
-    of PLAYER_MOVED:
-      # print PLAYER_MOVED
+    of Kind_PlayerConnected:
+      print Kind_PlayerConnected
+    of Kind_PlayerDisconnects:
+      print Kind_PlayerDisconnects
+    of Kind_PlayerMoved:
+      # print KindGReqPlayerMoved
       var req = fromFlatty(gmsg.data, GReqPlayerMoved)
       # print req
 
@@ -110,7 +128,7 @@ proc main(gserver: GServer, delta: float) =
       # let fres = toFlatty(res)
       # for id, player in gserver.players:
       #   # if id != msg.conn.id:
-      #   gserver.server.send(player.connection, toFlatty(GMsg(kind: PLAYER_MOVED, data: fres)))
+      #   gserver.server.send(player.connection, toFlatty(GMsg(kind: KindGReqPlayerMoved, data: fres)))
 
     else:
       print "UNKNOWN"
@@ -123,24 +141,27 @@ proc main(gserver: GServer, delta: float) =
       gserver.server.disconnect(msg.conn)
     # server.disconnect(msg.conn)
   # Send position updates regardless of previous move TODO good?
-  print "fanout"
+  # print "fanout"
   for id, player in gserver.players:
     let res = GResPlayerMoved(playerId: id, pos: player.pos, moveId: -10)
     let fres = toFlatty(res)
-    let gmsg = GMsg(kind: PLAYER_MOVED, data: fres)
+    let gmsg = GMsg(kind: Kind_PlayerMoved, data: fres)
     gserver.sendToAllClients(gmsg)
 
 
 proc mainLoop(gserver: GServer) =
-  let tar = (1000 / TARGET_FPS).int
+  let tar = calculateFrameTime(gserver.targetServerFps)
+  var delta = 0.1
   while true:
     let startt = getMonoTime()
-    let delta = 0.1 # todo
     gserver.main(delta)
     let endt = getMonoTime()
     let took = (endt - startt).inMilliseconds
+    # delta = took
     let sleepTime = (tar - took).clamp(0, 50_000)
-    print(took, sleeptime, took + sleepTime)
+    # print(took, sleeptime, took + sleepTime)
     sleep(sleepTime.int)
 
+
+gserver.configure()
 gserver.mainLoop()

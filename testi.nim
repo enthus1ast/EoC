@@ -8,6 +8,7 @@ import strformat
 import std/monotimes
 import std/times
 
+
 var screenWidth = 800
 var screenHeight = 450
 initWindow(screenWidth, screenHeight,
@@ -40,6 +41,8 @@ type
     # moves: Table[int32, GReqPlayerMoved]
     moves: Table[int32, Vector2]
 
+    targetServerFps: uint8
+
 
 var gclient = GClient()
 gclient.clientState = MAIN_MENU # we start in the main menu
@@ -62,7 +65,7 @@ proc connect(gclient: GClient, host: string = "127.0.0.1", port: int = 1999) =
 
 proc sendKeepalive(gclient: GClient) =
     var gmsg = GMsg()
-    gmsg.kind = KEEPALIVE
+    gmsg.kind = Kind_KEEPALIVE
     gmsg.data = ""
     # echo "send keepalive"
     gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
@@ -91,11 +94,15 @@ proc mainLoop(gclient: GClient) =
 
       var gmsg = fromFlatty(msg.data, GMsg)
       case gmsg.kind
-      of YOUR_ID_IS:
+      of Kind_ServerInfo:
+        let res = fromFlatty(gmsg.data, GResServerInfo)
+        gclient.targetServerFps = res.targetServerFps
+      of Kind_YourIdIs:
+        print gclient.myPlayerId
         let res = fromFlatty(gmsg.data, GResYourIdIs)
         gclient.myPlayerId = res.playerId
         gclient.clientState = MAP
-      of PLAYER_CONNECTED:
+      of Kind_PlayerConnected:
         # print PLAYER_CONNECTED
         let res = fromFlatty(gmsg.data, GResPlayerConnected)
         if res.playerId != gclient.myPlayerId:
@@ -106,14 +113,14 @@ proc mainLoop(gclient: GClient) =
           player.lastmove = getMonoTime()
           # gclient.players[res.playerId].pos = res.pos # TODO
           gclient.players[res.playerId] = player
-      of PLAYER_DISCONNECTED:
-        print PLAYER_DISCONNECTED
+      of Kind_PlayerDisconnects:
+        print Kind_PlayerDisconnects
         let disco = fromFlatty(gmsg.data, GResPlayerDisconnects)
         print disco
         gclient.players.del(disco.playerId) # = res.pos
         print gclient.players
-      of PLAYER_MOVED:
-        print "moved"
+      of Kind_PlayerMoved:
+        # print "moved"
         let res = fromFlatty(gmsg.data, GResPlayerMoved)
         if res.playerId == gclient.myPlayerId:
           # It is one move from us.
@@ -192,7 +199,7 @@ proc mainLoop(gclient: GClient) =
     if moved:
       gclient.moveId.inc
       var gmsg = GMsg()
-      gmsg.kind = PLAYER_MOVED
+      gmsg.kind = Kind_PlayerMoved
       let gReqPlayerMoved = GReqPlayerMoved(moveId: gclient.moveId, vec: moveVector)
 
       # Client prediction set position even if not aknowleged
@@ -241,14 +248,14 @@ proc mainLoop(gclient: GClient) =
         try:
           ## We must interpolate between the `oldpos` and the `newpos`
           let dif = (curTime - player.lastmove).inMilliseconds.int.clamp(0, 50_000)
-          let serverTickTime = 200.int # TODO ~5fps
+          let serverTickTime = calculateFrameTime(gclient.targetServerFps) # TODO ~5fps
           let percent = dif / serverTickTime
-          print (curTime - player.lastmove).inMilliseconds, dif, percent
-          print("after")
+          # print (curTime - player.lastmove).inMilliseconds, dif, percent
           let moveVec = player.pos - player.oldpos
 
           let interpolated =  player.oldpos + (moveVec * percent)
-          # drawCircle(player.pos.x.int, player.pos.y.int, 5, RED)
+
+          drawText($player.id, interpolated.x.int, interpolated.y.int, 10, Darkgray)
           drawCircle(interpolated.x.int, interpolated.y.int, 5, RED)
         except:
           echo getCurrentExceptionMsg()
