@@ -11,4 +11,8 @@
 ]#
 
 type Map = ref object
+  size: int
+  tiles: string
+  items: string
+
 

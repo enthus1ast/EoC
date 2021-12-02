@@ -46,6 +46,7 @@ type
 
   GResServerInfo* = object
     targetServerFps*: uint8
+    serverVersion*: uint16 # client must match
 
 func calculateFrameTime*(targetFps: int | uint8): int =
   ## calculates the time a frame must take

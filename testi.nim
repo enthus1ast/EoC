@@ -1,13 +1,9 @@
-import math
-import nimraylib_now
-import shared
-import json
-import tables
-import print
-import strformat
-import std/monotimes
-import std/times
+import typesClient
+import systemDraw
+import netlib
+import assetLoader
 
+const CLIENT_VERSION = 2
 
 var screenWidth = 800
 var screenHeight = 450
@@ -16,32 +12,6 @@ initWindow(screenWidth, screenHeight,
 ##  NOTE: Textures MUST be loaded after Window initialization (OpenGL context is requiRed)
 
 setTargetFPS(60)
-import netty, os, flatty
-
-type
-
-  Player = object # is player == crit (critter)?
-    id: Id
-    oldpos: Vector2 # we tween from oldpos
-    pos: Vector2    # to newpos in a "server tick time step"
-    lastmove: MonoTime
-
-  GClient = ref object
-    nclient: Reactor
-    clientState: ClientState
-    c2s: Connection
-    # players: Table[Id, Vector2]
-    players: Table[Id, Player]
-    myPlayerId: Id
-    connected: bool
-
-    # Main Menu
-    txtServer: cstring
-    moveId: int32
-    # moves: Table[int32, GReqPlayerMoved]
-    moves: Table[int32, Vector2]
-
-    targetServerFps: uint8
 
 
 var gclient = GClient()
@@ -51,6 +21,19 @@ gclient.players = initTable[Id, Player]()
 gclient.myPlayerId = 0
 gclient.connected = false
 gclient.moveid = 0
+gclient.serverMessages = newChatbox(5)
+gclient.camera = Camera2D(
+  # target: (x: player.x + 20.0, y: player.y + 20.0),
+  target: (0.0,0.0),
+  offset: (x: screenWidth / 2, y: screenHeight / 2),
+  rotation: 0.0,
+  zoom: 1.0,
+)
+gclient.assets = newAssetLoader()
+
+gclient.assets.loadTexture("assets/img/test.png")
+
+## Loading sprites must be done after window initialization
 
 # Main Menu
 ## TODO THIS IS STUPID
@@ -59,24 +42,22 @@ var txtServerDefault = "127.0.0.1"
 copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.len)
 
 
-proc connect(gclient: GClient, host: string = "127.0.0.1", port: int = 1999) =
-  gclient.clientState = CONNECTING
-  gclient.c2s = gclient.nclient.connect(host, port)
-
-proc sendKeepalive(gclient: GClient) =
-    var gmsg = GMsg()
-    gmsg.kind = Kind_KEEPALIVE
-    gmsg.data = ""
-    # echo "send keepalive"
-    gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
-
-func myPlayer(gclient: GClient): var Player =
-  gclient.players[gclient.myPlayerId]
 
 # proc recv[T](gclient: GClient): T =
 #   discard
 # proc send[T](gclient: GClient, obj: T) =
 #   discard
+
+# proc drawPlayer(gclient: GClient, player: Player) =
+#   if player.id == gclient.myPlayerId:
+
+#   drawText($player.id, player.pos.x.int, player.pos.y.int, 10, Blue)
+#   drawCircle(player.pos.x.int, player.pos.y.int, 5, RED)
+
+
+
+
+
 
 proc mainLoop(gclient: GClient) =
   initPhysics()
@@ -89,6 +70,7 @@ proc mainLoop(gclient: GClient) =
 
 
   while not windowShouldClose(): ##  Detect window close button or ESC key
+    poll(1)
     moved = false
     idx.inc
     gclient.nclient.tick()
@@ -100,14 +82,21 @@ proc mainLoop(gclient: GClient) =
       of Kind_ServerInfo:
         let res = fromFlatty(gmsg.data, GResServerInfo)
         gclient.targetServerFps = res.targetServerFps
+        if res.serverVersion != CLIENT_VERSION:
+          gclient.serverMessages.add("CLient does not match server version.", "client")
+          print res.serverVersion, CLIENT_VERSION
+          gclient.disconnect()
+
       of Kind_YourIdIs:
         let res = fromFlatty(gmsg.data, GResYourIdIs)
         gclient.myPlayerId = res.playerId
         print gclient.myPlayerId
         gclient.clientState = MAP
+        gclient.serverMessages.add("Connected to server yourId:" & $res.playerId)
       of Kind_PlayerConnected:
-        # print PLAYER_CONNECTED
+        print Kind_PlayerConnected
         let res = fromFlatty(gmsg.data, GResPlayerConnected)
+        print res
         # if res.playerId != gclient.myPlayerId:
         var player = Player()
         player.id = res.playerId
@@ -133,7 +122,7 @@ proc mainLoop(gclient: GClient) =
           # we replay the
           if gclient.moves.hasKey(res.moveId):
             if gclient.moves[res.moveId] == res.pos:
-              # echo "Move is good"
+              echo "Move is good"
               gclient.moves.del(res.moveId)
             else:
               print "move is bad:", res, gclient.moves[res.moveId]
@@ -159,6 +148,7 @@ proc mainLoop(gclient: GClient) =
       echo "[new] ", connection.address
     for connection in gclient.nclient.deadConnections:
       echo "[dead] ", connection.address
+      gclient.serverMessages.add("Lost server connection")
       gclient.connected = false
       gclient.clientState = MAIN_MENU
 
@@ -218,58 +208,16 @@ proc mainLoop(gclient: GClient) =
       if idx mod 60 == 0:
         gclient.sendKeepalive()
 
-    beginDrawing()
-    drawText("FPS: " & $getFPS() , 0, getScreenHeight() - 10, 10, Darkgray)
-    case gclient.clientState
-    of MAIN_MENU:
-      clearBackground(Yellow)
-      # if (GuiTextBox((Rectangle){ 25, 215, 125, 30 }, textBoxText, 64, textBoxEditMode)) textBoxEditMode = !textBoxEditMode;
-      # proc textBox*(bounds: Rectangle; text: cstring; textSize: cint; editMode: bool): bool
-      # var text: cstring
-      # if text.isNil:
-      #   text = newString(512)
-      if textBox(Rectangle(x: 10, y:10, width:150, height:30), gclient.txtServer , textSize = 512, editMode = true):
-        echo "TEXT BOX:", gclient.txtServer
 
-      var btnConnect = button(Rectangle(x: 10, y:50, width:50, height:30), "Connect")
-      if btnConnect:
-        echo "CONNECT"
-        gclient.connect($gclient.txtServer)
-    of CONNECTING:
-      clearBackground(Red)
-      let text = fmt"Connecting to server: {gclient.txtServer}"
-      drawText(text, 10, 10, 20, Black)
-    of MAP:
-      let curTime = getMonoTime()
-      clearBackground(Raywhite)
-      let mousePos = getMousePosition()
-      # drawCircle(playerPos.x.int, playerPos.y.int, 5, LIGHTGRAY)
-      drawCircle(mousePos.x.int, mousePos.y.int, 3, RED)
-      # draw all other players
-      for id, player in gclient.players:
+    gclient.systemDraw()
 
-        try:
-          ## We must interpolate between the `oldpos` and the `newpos`
-          let dif = (curTime - player.lastmove).inMilliseconds.int.clamp(0, 50_000)
-          let serverTickTime = calculateFrameTime(gclient.targetServerFps) # TODO ~5fps
-          let percent = dif / serverTickTime
-          # print (curTime - player.lastmove).inMilliseconds, dif, percent
-          let moveVec = player.pos - player.oldpos
-
-          let interpolated =  player.oldpos + (moveVec * percent)
-
-          drawText($player.id, interpolated.x.int, interpolated.y.int, 10, Darkgray)
-          drawCircle(interpolated.x.int, interpolated.y.int, 5, RED)
-        except:
-          echo getCurrentExceptionMsg()
-        # print dif
-
-
-      # drawText("FRAME SPEED: ", 165, 210, 10, Darkgray)
-      drawText("Unacknowledged moves: " & $gclient.moves.len , 10, 10, 10, Darkgray)
-    endDrawing()
 
   closePhysics()
   closeWindow()
 
+
+proc dummy(): Future[void] {.async.} =
+  while true:
+    await sleepAsync(1000)
+asyncCheck dummy()
 gclient.mainLoop()

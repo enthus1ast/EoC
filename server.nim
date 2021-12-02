@@ -11,6 +11,9 @@ import std/times
 import std/parsecfg
 import std/strutils
 import std/random
+import asyncdispatch
+
+const SERVER_VERSION = 2
 
 type
   Player = object
@@ -43,6 +46,11 @@ proc sendToAllClients(gserver: GServer, gmsg: GMsg) =
   for id, player in gserver.players:
     gserver.server.send(player.connection, msg)
 
+proc genServerInfo(gserver: GServer): GResServerInfo =
+  GResServerInfo(
+    targetServerFps: gserver.targetServerFps,
+    serverVersion: SERVER_VERSION
+  )
 
 proc main(gserver: GServer, delta: float) =
   # sleep(250)
@@ -63,7 +71,7 @@ proc main(gserver: GServer, delta: float) =
     gserver.dumpConnectedPlayers()
 
     # send the new connecting player the server info
-    let fGResServerInfo = toFlatty(GResServerInfo(targetServerFps: gserver.targetServerFps))
+    let fGResServerInfo = toFlatty(gserver.genServerInfo())
     gserver.server.send(connection, toFlatty(GMsg(kind: Kind_ServerInfo, data: fGResServerInfo)))
 
     # send the new connecting player his id
@@ -71,7 +79,6 @@ proc main(gserver: GServer, delta: float) =
     gserver.server.send(connection, toFlatty(GMsg(kind: Kind_YourIdIs, data: fgResYourIdIs)))
 
     # update the new connected player about all the other players
-    # TODO this should not be a move but a GResPlayerConnected
     # let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id))
     # server.send(player, toFlatty(GMsg(kind: PLAYER_CONNECTED, data: fgResPlayerConnected)))
     for id, player in gserver.players:
@@ -82,7 +89,7 @@ proc main(gserver: GServer, delta: float) =
 
 
     # tell every other player about the new connected player
-    let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id))
+    let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id, pos: player.pos))
     for player in gserver.server.connections:
       # server.send(player, "Player connected:" & $connection.id)
       gserver.server.send(player, toFlatty(GMsg(kind: Kind_PlayerConnected, data: fgResPlayerConnected)))
@@ -92,11 +99,9 @@ proc main(gserver: GServer, delta: float) =
     print "[dead] ", connection.address, connection.id
     gserver.players.del(connection.id)
     gserver.dumpConnectedPlayers()
-    # for player in server.connections:
-    for id, player in gserver.players:
-      # server.send(player, "Player leaves:" & $player.id)
-      let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: id))
-      gserver.server.send(player.connection, toFlatty(GMsg(kind: Kind_PlayerDisconnects, data: fgResPlayerDisconnects)))
+    let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: connection.id))
+    gserver.sendToAllClients(GMsg(kind: Kind_PlayerDisconnects, data: fgResPlayerDisconnects))
+
 
 
 
