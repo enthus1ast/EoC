@@ -14,7 +14,7 @@ import netty, os, flatty
 import typesAssetLoader
 
 export math
-export nimraylib_now
+# export nimraylib_now
 export shared
 export json
 export tables

@@ -2,20 +2,19 @@ import typesClient
 import systemDraw
 import netlib
 import assetLoader
-
-
-
+import nimraylib_now
 
 const CLIENT_VERSION = 2
 
+# var screenWidth = getScreenWidth() div 2
+# var screenHeight = getScreenHeight() div 2
+
 var screenWidth = 800
 var screenHeight = 450
-initWindow(screenWidth, screenHeight,
-           "raylib [texture] example - texture rectangle")
-##  NOTE: Textures MUST be loaded after Window initialization (OpenGL context is requiRed)
+setConfigFlags(VsyncHint or Msaa4xHint or WindowHighdpi or WindowResizable)
+initWindow(screenWidth, screenHeight, "EoC")
 
 setTargetFPS(60)
-
 
 var gclient = GClient()
 gclient.clientState = MAIN_MENU # we start in the main menu
@@ -35,6 +34,7 @@ gclient.camera = Camera2D(
 gclient.assets = newAssetLoader()
 
 gclient.assets.loadTexture("assets/img/test.png")
+gclient.assets.loadMap("assets/maps/demoTown.tmx")
 
 ## Loading sprites must be done after window initialization
 
@@ -80,6 +80,7 @@ proc mainLoop(gclient: GClient) =
       case gmsg.kind
       of Kind_ServerInfo:
         let res = fromFlatty(gmsg.data, GResServerInfo)
+        gclient.players.clear()
         gclient.targetServerFps = res.targetServerFps
         if res.serverVersion != CLIENT_VERSION:
           gclient.serverMessages.add("CLient does not match server version.", "client")
@@ -155,36 +156,48 @@ proc mainLoop(gclient: GClient) =
     if isKeyPressed(KeyboardKey.I):
       echo "I"
 
+    if isKeyPressed(KeyboardKey.M):
+      if gclient.clientState == MAP:
+        gclient.clientState = WORLD_MAP
+      elif gclient.clientState == WORLD_MAP:
+        gclient.clientState = MAP
+
+    if isKeyPressed(KeyboardKey.F11):
+      toggleFullscreen()
+
     var moveVector: Vector2
 
-    # Key events
-    if isKeyDown(KeyboardKey.D):
-      # echo "right"
-      # playerPos.x += 2
-      moveVector.x = 1
-      moved = true
-    elif isKeyDown(KeyboardKey.A):
-      # echo "left"
-      # playerPos.x -= 2
-      moveVector.x = -1
-      moved = true
 
-    if isKeyDown(KeyboardKey.W):
-      # echo "up"
-      # playerPos.y -= 2
-      moveVector.y = -1
-      moved = true
+    ## Key input for the map
+    if gclient.clientState == MAP:
+      # Key events
+      if isKeyDown(KeyboardKey.D):
+        # echo "right"
+        # playerPos.x += 2
+        moveVector.x = 1
+        moved = true
+      elif isKeyDown(KeyboardKey.A):
+        # echo "left"
+        # playerPos.x -= 2
+        moveVector.x = -1
+        moved = true
 
-    elif isKeyDown(KeyboardKey.S):
-      # echo "down"
-      # playerPos.y += 2
-      moveVector.y = 1
-      moved = true
+      if isKeyDown(KeyboardKey.W):
+        # echo "up"
+        # playerPos.y -= 2
+        moveVector.y = -1
+        moved = true
 
+      elif isKeyDown(KeyboardKey.S):
+        # echo "down"
+        # playerPos.y += 2
+        moveVector.y = 1
+        moved = true
 
-    if isKeyDown(KeyboardKey.L): ## TODO remove this; simulates a HACK
-      moveVector.y *= 2 ## TODO remove this; simulates a HACK
-      moveVector.x *= 2 ## TODO remove this; simulates a HACK
+      if isKeyDown(KeyboardKey.L): ## TODO remove this; simulates a HACK
+        moveVector.y *= 2 ## TODO remove this; simulates a HACK
+        moveVector.x *= 2 ## TODO remove this; simulates a HACK
+
 
 
     ## Net

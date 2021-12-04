@@ -17,3 +17,5 @@ requires "nimraylib_now" # raylib bindings render / multimedia library
 requires "flatty" # binary serialisation library
 requires "supersnappy" # compression library
 requires "print" # better echo
+requires "https://github.com/avahe-kellenberger/nim-chipmunk.git" # 2d Physic engine
+requires "https://github.com/SkyVault/nim-tiled.git" # Tiled loader

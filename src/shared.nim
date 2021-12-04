@@ -11,6 +11,7 @@ type
     MAIN_MENU
     CONNECTING
     MAP
+    WORLD_MAP
 
   GMsgKind* = enum
     Kind_UNKNOWN = 0'u16
