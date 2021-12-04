@@ -12,6 +12,7 @@ import asyncdispatch
 import chatbox
 import netty, os, flatty
 import typesAssetLoader
+# import
 
 export math
 # export nimraylib_now
@@ -58,6 +59,8 @@ type
     camera*: Camera2D
 
     assets*: AssetLoader
+
+
 
     # circle*: PhysicsBody # TODO test
     # bodies*: seq[PhysicsBody]

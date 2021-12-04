@@ -31,6 +31,11 @@ converter toReg(tiledRegion: TiledRegion): Rectangle =
     height: tiledRegion.height.float,
   )
 
+proc toVecs(points: seq[(float, float)], pos: Vector2): seq[Vector2] =
+  result = @[]
+  for point in points:
+    result.add Vector2(x: point[0] + pos.x, y: point[1] + pos.y)
+
 proc drawTilemap*(gclient: GClient, map: GMap) =
   let tileset = map.tiled.tilesets()[0]
   let texture = gclient.assets.textures[tileset.imagePath()]
@@ -44,6 +49,23 @@ proc drawTilemap*(gclient: GClient, map: GMap) =
           let sourceReg = Rectangle(x: region.x.float, y: region.y.float, width: region.width.float, height: region.height.float)
           let destPos = Vector2(x: (xx * map.tiled.tilewidth).float, y: (yy * map.tiled.tileheight).float)
           drawTextureRec(texture, sourceReg, destPos, White)
+
+  # Now we debug draw the polygons
+  # we must later decide what we do with the polygons
+  for objectGroup in map.tiled.objectGroups:
+    # nim_tiled cannot show which TiledObject we have
+    # but we know that these are polygons
+    # void DrawLineStrip(Vector2 *points, int pointsCount, Color color);   // Draw lines sequence
+    let color =
+      case objectGroup.name
+      of "Exit": Red
+      of "Next": Green
+      else: Black
+    for obj in objectGroup.objects:
+      # print obj
+      var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
+      # print vecs
+      drawLineStrip(addr vecs[0], vecs.len, color)
 
 proc systemDraw*(gclient: GClient) =
   # var testSprite: Texture2D = loadTexture(getAppDir() / "assets/img/test.png")

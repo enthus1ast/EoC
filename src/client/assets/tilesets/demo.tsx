@@ -1,6 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tileset version="1.5" tiledversion="1.7.2" name="demo" tilewidth="32" tileheight="32" tilecount="256" columns="16">
  <image source="../img/tilesets/demo.png" width="512" height="512"/>
+ <tile id="63">
+  <objectgroup draworder="index" id="2">
+   <object id="3" x="11" y="20"/>
+  </objectgroup>
+ </tile>
+ <tile id="79">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="16" y="19"/>
+  </objectgroup>
+ </tile>
+ <tile id="139">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="1" width="32" height="31"/>
+  </objectgroup>
+ </tile>
+ <tile id="167">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="7" width="32" height="25"/>
+  </objectgroup>
+ </tile>
+ <tile id="168">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="7" width="32" height="25"/>
+  </objectgroup>
+ </tile>
  <wangsets>
   <wangset name="Terrains" type="corner" tile="-1">
    <wangcolor name="Grass" color="#ff0000" tile="-1" probability="1"/>

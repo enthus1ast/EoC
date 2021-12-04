@@ -86,7 +86,6 @@ proc mainLoop(gclient: GClient) =
           gclient.serverMessages.add("CLient does not match server version.", "client")
           print res.serverVersion, CLIENT_VERSION
           gclient.disconnect()
-
       of Kind_YourIdIs:
         let res = fromFlatty(gmsg.data, GResYourIdIs)
         gclient.myPlayerId = res.playerId

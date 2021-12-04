@@ -23,6 +23,3 @@ proc loadMap*(ass: var AssetLoader, relpath: string) =
     let (dir, name, ext) = tileset.imagePath.splitFile()
     ass.loadTexture("assets/img/tilesets" / name & ext, key = tileset.imagePath) # we overwrite the key to get it easier on tilemap load
   ass.maps[relpath] = map
-when isMainModule:
-  var ass = newAssetLoader()
-  ass.loadMap("assets/maps/demoTown.tmx")
