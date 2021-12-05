@@ -1,3 +1,4 @@
+
 import typesClient
 import systemDraw
 import netlib
@@ -7,6 +8,10 @@ import nimraylib_now
 import systemPhysic
 
 const CLIENT_VERSION = 2
+
+
+
+
 
 # var screenWidth = getScreenWidth() div 2
 # var screenHeight = getScreenHeight() div 2
@@ -43,10 +48,11 @@ gclient.physic = newSystemPhysic()
 
 
 ## Some components
-type
-  CompPlayer = ref object of Component
-    playerId: Id
-    name: string
+# type
+#   CompPlayer = ref object of Component
+#     playerId: Id
+#     name: string
+
 
 
 
@@ -67,6 +73,12 @@ copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.le
 
 # proc drawPlayer(gclient: GClient, player: Player) =
 #   if player.id == gclient.myPlayerId:
+
+# proc finalizePlayer(player: Player) =
+#   echo "finalize player"
+
+
+
 
 proc mainLoop(gclient: GClient) =
   initPhysics()
@@ -109,11 +121,13 @@ proc mainLoop(gclient: GClient) =
         let res = fromFlatty(gmsg.data, GResPlayerConnected)
         print res
         # if res.playerId != gclient.myPlayerId:
-        var player = Player()
-        player.id = res.playerId
-        player.oldpos = res.pos # on connect set both equal
-        player.pos = res.pos # on connect set both equal
-        player.lastmove = getMonoTime()
+        # var player = Player()
+        # player.id = res.playerId
+        # player.oldpos = res.pos # on connect set both equal
+        # player.pos = res.pos # on connect set both equal
+        # player.lastmove = getMonoTime()
+        var player = newPlayer(res.playerId, res.pos)
+
         # gclient.players[res.playerId].pos = res.pos # TODO
         gclient.players[res.playerId] = player
       of Kind_PlayerDisconnects:

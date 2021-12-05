@@ -32,13 +32,14 @@ export netty, os, flatty
 export typesAssetLoader
 export ecs
 
-
 type
-  Player* = object # is player == crit (critter)?
+  Player* = ref object of Component # is player == crit (critter)?
     id*: Id
     oldpos*: Vector2 # we tween from oldpos
     pos*: Vector2    # to newpos in a "server tick time step"
-    lastmove*: MonoTime
+    lastmove*: MonoTime #
+    shape*: chipmunk7.Shape # the players main collision shape
+
 
   GClient* = ref object
     nclient*: Reactor
@@ -71,3 +72,15 @@ type
 
     # circle*: PhysicsBody # TODO test
     # bodies*: seq[PhysicsBody]
+
+proc finalizePlayer(player: Player) =
+  print "finalize player: ", player
+
+# proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2): Player =
+proc newPlayer*(playerId: Id, pos: Vector2): Player =
+  new(result, finalizePlayer)
+  result.id = playerId
+  result.pos = pos
+  result.oldpos = pos # on create set both equal
+  result.lastmove = getMonoTime()
+  # result.shape =
