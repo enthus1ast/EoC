@@ -12,6 +12,8 @@ import asyncdispatch
 import chatbox
 import netty, os, flatty
 import typesAssetLoader
+import ecs
+import typesSystemPhysic
 # import
 
 export math
@@ -28,6 +30,7 @@ export asyncdispatch
 export chatbox
 export netty, os, flatty
 export typesAssetLoader
+export ecs
 
 
 type
@@ -60,7 +63,11 @@ type
 
     assets*: AssetLoader
 
+    reg*: Registry
 
+    ## Ideally the systems have their own datatype
+    ## So that they can store their stuff und not clutter the GClient type
+    physic*: SystemPhysic
 
     # circle*: PhysicsBody # TODO test
     # bodies*: seq[PhysicsBody]

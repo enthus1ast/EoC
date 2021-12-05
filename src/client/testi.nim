@@ -4,6 +4,8 @@ import netlib
 import assetLoader
 import nimraylib_now
 
+import systemPhysic
+
 const CLIENT_VERSION = 2
 
 # var screenWidth = getScreenWidth() div 2
@@ -25,18 +27,28 @@ gclient.connected = false
 gclient.moveid = 0
 gclient.serverMessages = newChatbox(5)
 gclient.camera = Camera2D(
-  # target: (x: player.x + 20.0, y: player.y + 20.0),
   target: (0.0,0.0),
   offset: (x: screenWidth / 2, y: screenHeight / 2),
   rotation: 0.0,
   zoom: 1.0,
 )
 gclient.assets = newAssetLoader()
-
 gclient.assets.loadTexture("assets/img/test.png")
 gclient.assets.loadMap("assets/maps/demoTown.tmx")
 
+gclient.reg = newRegistry()
+gclient.physic = newSystemPhysic()
 ## Loading sprites must be done after window initialization
+
+
+
+## Some components
+type
+  CompPlayer = ref object of Component
+    playerId: Id
+    name: string
+
+
 
 # Main Menu
 ## TODO THIS IS STUPID
@@ -220,8 +232,11 @@ proc mainLoop(gclient: GClient) =
         gclient.sendKeepalive()
 
 
+    let delta = 1/60 # TODO
+    gclient.systemPhysic(delta)
     gclient.systemDraw()
 
+    gclient.reg.cleanup()
 
   closePhysics()
   closeWindow()
