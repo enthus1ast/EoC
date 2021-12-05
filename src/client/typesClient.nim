@@ -33,20 +33,23 @@ export typesAssetLoader
 export ecs
 
 type
-  Player* = ref object of Component # is player == crit (critter)?
+  CompPlayer* = ref object of Component # is player == crit (critter)?
     id*: Id
     oldpos*: Vector2 # we tween from oldpos
     pos*: Vector2    # to newpos in a "server tick time step"
     lastmove*: MonoTime #
     shape*: chipmunk7.Shape # the players main collision shape
 
+  CompName* = ref object of Component
+    name*: string
 
   GClient* = ref object
     nclient*: Reactor
     clientState*: ClientState
     c2s*: Connection
     # players*: Table[Id, Vector2]
-    players*: Table[Id, Player]
+    # players*: Table[Id, CompPlayer]
+    players*: Table[Id, Entity]
     myPlayerId*: Id
     connected*: bool
 
@@ -73,14 +76,21 @@ type
     # circle*: PhysicsBody # TODO test
     # bodies*: seq[PhysicsBody]
 
-proc finalizePlayer(player: Player) =
-  print "finalize player: ", player
+proc finalizePlayer(compPlayer: CompPlayer) =
+  ## Destroys the collision shape and body of a player
+  print "finalize player: ", compPlayer
 
-# proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2): Player =
-proc newPlayer*(playerId: Id, pos: Vector2): Player =
-  new(result, finalizePlayer)
-  result.id = playerId
-  result.pos = pos
-  result.oldpos = pos # on create set both equal
-  result.lastmove = getMonoTime()
-  # result.shape =
+proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Entity =
+  result = gclient.reg.newEntity()
+
+  var compPlayer = CompPlayer()
+  new(compPlayer, finalizePlayer)
+  compPlayer.id = playerId # the network id from netty
+  compPlayer.pos = pos
+  compPlayer.oldpos = pos # on create set both equal
+  compPlayer.lastmove = getMonoTime()
+  gclient.reg.addComponent(result, compPlayer)
+
+  var compName = CompName(name: name)
+  gclient.reg.addComponent(result, compName)
+

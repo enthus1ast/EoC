@@ -26,7 +26,7 @@ setTargetFPS(60)
 var gclient = GClient()
 gclient.clientState = MAIN_MENU # we start in the main menu
 gclient.nclient = newReactor()
-gclient.players = initTable[Id, Player]()
+gclient.players = initTable[Id, Entity]()
 gclient.myPlayerId = 0
 gclient.connected = false
 gclient.moveid = 0
@@ -74,8 +74,7 @@ copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.le
 # proc drawPlayer(gclient: GClient, player: Player) =
 #   if player.id == gclient.myPlayerId:
 
-# proc finalizePlayer(player: Player) =
-#   echo "finalize player"
+
 
 
 
@@ -119,22 +118,15 @@ proc mainLoop(gclient: GClient) =
       of Kind_PlayerConnected:
         print Kind_PlayerConnected
         let res = fromFlatty(gmsg.data, GResPlayerConnected)
-        print res
-        # if res.playerId != gclient.myPlayerId:
-        # var player = Player()
-        # player.id = res.playerId
-        # player.oldpos = res.pos # on connect set both equal
-        # player.pos = res.pos # on connect set both equal
-        # player.lastmove = getMonoTime()
-        var player = newPlayer(res.playerId, res.pos)
-
-        # gclient.players[res.playerId].pos = res.pos # TODO
-        gclient.players[res.playerId] = player
+        var entPlayer = gclient.newPlayer(res.playerId, res.pos, "Player's Name TODO")
+        gclient.players[res.playerId] = entPlayer
       of Kind_PlayerDisconnects:
         print Kind_PlayerDisconnects
         let disco = fromFlatty(gmsg.data, GResPlayerDisconnects)
         print disco
-        gclient.players.del(disco.playerId) # = res.pos
+        let entPlayer = gclient.players[disco.playerId]
+        gclient.reg.destroyEntity(entPlayer)
+        gclient.players.del(disco.playerId)
         print gclient.players
       of Kind_PlayerMoved:
         # print "moved"
@@ -155,15 +147,19 @@ proc mainLoop(gclient: GClient) =
               echo "LOCAL :", gclient.moves[res.moveId]
               ## TODO replay moves
               ## TODO currently we just reset
-              gclient.myPlayer().pos = res.pos
+              let entPlayer = gclient.myPlayer()
+              var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+              compPlayer.pos = res.pos
               # gclient.players[res.playerId] = res.pos
               gclient.moves = initTable[int32, Vector2]()
             discard
         else:
           ## A move for other players / crit
-          gclient.players[res.playerId].oldpos = gclient.players[res.playerId].pos
-          gclient.players[res.playerId].pos = res.pos # TODO
-          gclient.players[res.playerId].lastmove = getMonoTime()
+          let entPlayer = gclient.players[res.playerId]
+          var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+          compPlayer.oldpos = compPlayer.pos
+          compPlayer.pos = res.pos # TODO
+          compPlayer.lastmove = getMonoTime()
 
 
       else:
@@ -233,12 +229,14 @@ proc mainLoop(gclient: GClient) =
       let gReqPlayerMoved = GReqPlayerMoved(moveId: gclient.moveId, vec: moveVector)
 
       # Client prediction set position even if not aknowleged
-      gclient.myPlayer().pos += moveVector
+      let entPlayer = gclient.myPlayer()
+      let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+      compPlayer.pos += moveVector
 
       gmsg.data = toFlatty(gReqPlayerMoved)
       gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
       # gclient.moves[gclient.moveId] = gReqPlayerMoved
-      gclient.moves[gclient.moveId] = gclient.myPlayer().pos
+      gclient.moves[gclient.moveId] = compPlayer.pos
 
 
     if gclient.clientState == CONNECTING or gclient.clientState == MAP: ## TODO

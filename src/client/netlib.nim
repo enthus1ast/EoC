@@ -1,6 +1,6 @@
 import typesClient
 
-func myPlayer*(gclient: GClient): var Player =
+func myPlayer*(gclient: GClient): Entity =
   gclient.players[gclient.myPlayerId]
 
 proc connect*(gclient: GClient, host: string = "127.0.0.1", port: int = 1999) =
