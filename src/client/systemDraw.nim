@@ -50,6 +50,24 @@ proc drawTilemap*(gclient: GClient, map: GMap) =
           let destPos = Vector2(x: (xx * map.tiled.tilewidth).float, y: (yy * map.tiled.tileheight).float)
           drawTextureRec(texture, sourceReg, destPos, White)
 
+          ## Tile Collision shapes
+          if tileset.tiles.hasKey(gid - 1): # ids are are not correct in tiled tmx
+            let collisionShapes = tileset.tiles[gid - 1].collisionShapes
+            for collisionShape in collisionShapes:
+              case collisionShape.kind
+              of kindTiledTileCollisionShapesRect:
+                discard
+                let rect = TiledTileCollisionShapesRect(collisionShape)
+                # print rect, destPos
+                # print rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow
+                drawRectangleLines(rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow)
+
+              of kindTiledTileCollisionShapesPoint:
+                discard
+                print kindTiledTileCollisionShapesPoint, "not support"
+              else:
+                discard # unsupported shape
+
   # Now we debug draw the polygons
   # we must later decide what we do with the polygons
   for objectGroup in map.tiled.objectGroups:

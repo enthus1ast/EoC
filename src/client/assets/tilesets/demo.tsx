@@ -3,17 +3,22 @@
  <image source="../img/tilesets/demo.png" width="512" height="512"/>
  <tile id="63">
   <objectgroup draworder="index" id="2">
-   <object id="3" x="11" y="20"/>
+   <object id="5" x="1" y="9" width="21" height="21"/>
   </objectgroup>
  </tile>
  <tile id="79">
   <objectgroup draworder="index" id="2">
-   <object id="1" x="16" y="19"/>
+   <object id="2" x="6" y="10" width="21" height="21"/>
   </objectgroup>
  </tile>
  <tile id="139">
   <objectgroup draworder="index" id="2">
-   <object id="1" x="0" y="1" width="32" height="31"/>
+   <object id="3" x="0" y="0" width="32" height="32"/>
+  </objectgroup>
+ </tile>
+ <tile id="164">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="0" width="32" height="32"/>
   </objectgroup>
  </tile>
  <tile id="167">
