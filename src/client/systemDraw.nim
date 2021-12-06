@@ -37,10 +37,10 @@ proc toVecs(points: seq[(float, float)], pos: Vector2): seq[Vector2] =
   for point in points:
     result.add Vector2(x: point[0] + pos.x, y: point[1] + pos.y)
 
-proc drawTilemap*(gclient: GClient, map: GMap) =
-  let tileset = map.tiled.tilesets()[0]
+proc drawTilemap*(gclient: GClient, map: TiledMap) =
+  let tileset = map.tilesets()[0]
   let texture = gclient.assets.textures[tileset.imagePath()]
-  for layer in map.tiled.layers:
+  for layer in map.layers:
     for xx in 0..<layer.height:
       for yy in 0..<layer.width:
         let index = xx + yy * layer.width
@@ -48,7 +48,7 @@ proc drawTilemap*(gclient: GClient, map: GMap) =
         if gid != 0:
           let region = tileset.regions[gid - 1]
           let sourceReg = Rectangle(x: region.x.float, y: region.y.float, width: region.width.float, height: region.height.float)
-          let destPos = Vector2(x: (xx * map.tiled.tilewidth).float, y: (yy * map.tiled.tileheight).float)
+          let destPos = Vector2(x: (xx * map.tilewidth).float, y: (yy * map.tileheight).float)
           drawTextureRec(texture, sourceReg, destPos, White)
 
           ## Tile Collision shapes
@@ -71,7 +71,7 @@ proc drawTilemap*(gclient: GClient, map: GMap) =
 
   # Now we debug draw the polygons
   # we must later decide what we do with the polygons
-  for objectGroup in map.tiled.objectGroups:
+  for objectGroup in map.objectGroups:
     # nim_tiled cannot show which TiledObject we have
     # but we know that these are polygons
     # void DrawLineStrip(Vector2 *points, int pointsCount, Color color);   // Draw lines sequence
@@ -171,6 +171,7 @@ proc systemDraw*(gclient: GClient) =
     # draw all other players
     for id, entPlayer in gclient.players:
       let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+      let compName = gclient.reg.getComponent(entPlayer, CompName)
       if id == gclient.myPlayerId:
         ## This is us, we can draw us directly
         drawText($compPlayer.id, compPlayer.pos.x.int - 20 , compPlayer.pos.y.int - 20 , 10, Blue)
@@ -187,7 +188,8 @@ proc systemDraw*(gclient: GClient) =
 
           let interpolated =  compPlayer.oldpos + (moveVec * percent)
 
-          drawText($compPlayer.id, interpolated.x.int - 20, interpolated.y.int - 20 , 10, Darkgray)
+          drawText($compPlayer.id, interpolated.x.int - 20, interpolated.y.int - 35 , 15, Black)
+          drawText(compName.name, interpolated.x.int - 20, interpolated.y.int - 20 , 15, Black)
           drawCircle(interpolated.x.int, interpolated.y.int, 5, RED)
         except:
           echo getCurrentExceptionMsg()

@@ -43,6 +43,9 @@ type
   CompName* = ref object of Component
     name*: string
 
+  # CompMap* = ref object of Component
+  #   tiled*: TiledMap
+
   GClient* = ref object
     nclient*: Reactor
     clientState*: ClientState
@@ -81,8 +84,8 @@ proc finalizePlayer(compPlayer: CompPlayer) =
   print "finalize player: ", compPlayer
 
 proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Entity =
+  ## Creates a new player entity
   result = gclient.reg.newEntity()
-
   var compPlayer = CompPlayer()
   new(compPlayer, finalizePlayer)
   compPlayer.id = playerId # the network id from netty
@@ -90,7 +93,12 @@ proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Ent
   compPlayer.oldpos = pos # on create set both equal
   compPlayer.lastmove = getMonoTime()
   gclient.reg.addComponent(result, compPlayer)
+  gclient.reg.addComponent(result, CompName(name: name))
 
-  var compName = CompName(name: name)
-  gclient.reg.addComponent(result, compName)
+proc newTilemap*(gclient: GClient, mapPath: string): Entity =
+  ## Creates a new tilemap entity,
+  ## if the map data was not loaded previously, it gets loaded.
+  result = gclient.reg.newEntity()
 
+proc newTile*(gclient: GClient, imgKey: string): Entity =
+  result = gclient.reg.newEntity()
