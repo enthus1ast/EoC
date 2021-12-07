@@ -2,6 +2,9 @@ import nim_tiled
 import print
 let map = loadTiledMap("assets/maps/demoTown.tmx")
 var tileset = map.tilesets[0]
+echo map.width * map.tilewidth
+echo map.height * map.tileheight
+print map
 # print map
 # print tileset.regions
 # print map.objectGroups

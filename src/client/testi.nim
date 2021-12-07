@@ -281,7 +281,7 @@ proc mainLoop(gclient: GClient) =
       # compPlayer.controlBody.position = compPlayer.body.position
       # compPlayer.body.velocity = v(0,0)
 
-    if gclient.clientState == CONNECTING or gclient.clientState == MAP: ## TODO
+    if gclient.clientState == CONNECTING or gclient.clientState == MAP: ## TODO?
       if idx mod 60 == 0:
         gclient.sendKeepalive()
 

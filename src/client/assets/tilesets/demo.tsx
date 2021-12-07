@@ -11,9 +11,43 @@
    <object id="2" x="6" y="10" width="21" height="21"/>
   </objectgroup>
  </tile>
+ <tile id="137">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="1" y="20" width="17" height="12"/>
+   <object id="2" x="18" y="1" width="14" height="31"/>
+  </objectgroup>
+ </tile>
+ <tile id="138">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="1" width="16" height="31"/>
+   <object id="2" x="16" y="13" width="16" height="19"/>
+  </objectgroup>
+ </tile>
  <tile id="139">
   <objectgroup draworder="index" id="2">
    <object id="3" x="0" y="0" width="32" height="32"/>
+  </objectgroup>
+ </tile>
+ <tile id="153">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="0" width="32" height="16"/>
+   <object id="2" x="25" y="16" width="7" height="15"/>
+  </objectgroup>
+ </tile>
+ <tile id="154">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="-1" y="0" width="32" height="16"/>
+   <object id="2" x="-1" y="16" width="28" height="14"/>
+  </objectgroup>
+ </tile>
+ <tile id="155">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="7" y="3" width="18" height="28"/>
+  </objectgroup>
+ </tile>
+ <tile id="163">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="0" width="32" height="32"/>
   </objectgroup>
  </tile>
  <tile id="164">
@@ -29,6 +63,26 @@
  <tile id="168">
   <objectgroup draworder="index" id="2">
    <object id="1" x="0" y="7" width="32" height="25"/>
+  </objectgroup>
+ </tile>
+ <tile id="208">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="0" width="32" height="32"/>
+  </objectgroup>
+ </tile>
+ <tile id="209">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="0" width="32" height="32"/>
+  </objectgroup>
+ </tile>
+ <tile id="210">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="0" width="32" height="32"/>
+  </objectgroup>
+ </tile>
+ <tile id="215">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="7" y="3" width="19" height="27"/>
   </objectgroup>
  </tile>
  <wangsets>

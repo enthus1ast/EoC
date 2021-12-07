@@ -60,16 +60,14 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
             if tileset.tiles.hasKey(gid - 1): # ids are are not correct in tiled tmx
               let collisionShapes = tileset.tiles[gid - 1].collisionShapes
               for collisionShape in collisionShapes:
-                case collisionShape.kind
-                of kindTiledTileCollisionShapesRect:
+                if collisionShape of TiledTileCollisionShapesRect:
                   let rect = TiledTileCollisionShapesRect(collisionShape)
                   # print rect, destPos
                   # print rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow
                   drawRectangleLines(rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow)
-
-                of kindTiledTileCollisionShapesPoint:
+                elif collisionShape of TiledTileCollisionShapesPoint:
                   discard
-                  print kindTiledTileCollisionShapesPoint, "not support"
+                  print "not support"
                 else:
                   discard # unsupported shape
 
@@ -77,21 +75,21 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
   # we must later decide what we do with the polygons
   if gclient.debugDraw:
     for objectGroup in map.objectGroups:
-      # nim_tiled cannot show which TiledObject we have
-      # but we know that these are polygons
-      # void DrawLineStrip(Vector2 *points, int pointsCount, Color color);   // Draw lines sequence
       let color =
         case objectGroup.name
         of "Exit": Red
         of "Next": Green
+        of "Collision": Yellow
         else: Black
       for obj in objectGroup.objects:
         # var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
         # drawLineStrip(addr vecs[0], vecs.len, color)
-
-        var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
-        drawLineStrip(addr vecs[0], vecs.len, color)
-
+        if obj of TiledPolygon:
+          var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
+          drawLineStrip(addr vecs[0], vecs.len, color)
+        else: # Rectangle
+          drawRectangleLines(obj.x.int, obj.y.int, obj.width.int, obj.height.int, color)
+        # TODO draw the rest of the obj shapes
 
 proc systemDraw*(gclient: GClient) =
   beginDrawing()

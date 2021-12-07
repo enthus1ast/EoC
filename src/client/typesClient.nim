@@ -54,6 +54,10 @@ type
     tiles*: Table[Vector2, Entity]
     tileCollisionBodies*: Table[int, chipmunk7.Body]
     tileCollisionShapes*: Table[int, chipmunk7.Shape]
+    mapBoundaryBody*: chipmunk7.Body
+    mapBoundarieShapes*: array[4, chipmunk7.Shape]
+    objCollisionBodies*: Table[int, chipmunk7.Body]
+    objCollisionShapes*: Table[int, chipmunk7.Shape]
 
   # CompMap* = ref object of Component
   #   tiled*: TiledMap
@@ -168,6 +172,25 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
   result = gclient.reg.newEntity()
   let map = gclient.assets.maps["assets/maps/demoTown.tmx"]
   var compTilemap = CompTilemap()
+
+  ## Generate the map collision boundaries
+  let widthPixel = (map.width * map.tilewidth).float
+  let heightPixel = (map.height * map.tileheight).float
+  compTilemap.mapBoundaryBody = addBody(gclient.physic.space, newStaticBody())
+  compTilemap.mapBoundarieShapes[0] = gclient.physic.space.addShape(
+    newSegmentShape(compTilemap.mapBoundaryBody, v(0.0, 0.0), v(widthPixel, 0.0), 2)
+  )
+  compTilemap.mapBoundarieShapes[1] = gclient.physic.space.addShape(
+    newSegmentShape(compTilemap.mapBoundaryBody, v(widthPixel, 0.0), v(widthPixel, heightPixel), 2)
+  )
+  compTilemap.mapBoundarieShapes[2] = gclient.physic.space.addShape(
+    newSegmentShape(compTilemap.mapBoundaryBody, v(widthPixel, heightPixel), v(0.0, heightPixel), 2)
+  )
+  compTilemap.mapBoundarieShapes[3] = gclient.physic.space.addShape(
+    newSegmentShape(compTilemap.mapBoundaryBody, v(0.0, heightPixel), v(0.0, 0.0), 2)
+  )
+
+
   ## Todo this is just copied from the systemDraw
   let tileset = map.tilesets()[0]
   let texture = gclient.assets.textures[tileset.imagePath()]
@@ -184,20 +207,59 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
           ## Tile Collision shapes
           if tileset.tiles.hasKey(gid - 1): # ids are are not correct in tiled tmx
             let collisionShapes = tileset.tiles[gid - 1].collisionShapes
+            print "Created static static body at:", destPos.x, destPos.y
+            compTilemap.tileCollisionBodies[index] = addBody(gclient.physic.space, newStaticBody())
+            compTilemap.tileCollisionBodies[index].position = v(destPos.x + (map.tilewidth / 2), destPos.y + (map.tileheight / 2))
             for collisionShape in collisionShapes:
-              case collisionShape.kind
-              of kindTiledTileCollisionShapesRect:
+              if collisionShape of TiledTileCollisionShapesRect:
                 let rect = TiledTileCollisionShapesRect(collisionShape)
                 print "Created static shape at:", destPos.x, destPos.y, rect.width, rect.height
-                compTilemap.tileCollisionBodies[index] = addBody(gclient.physic.space, newStaticBody())
-                compTilemap.tileCollisionBodies[index].position = v(destPos.x + 16, destPos.y + 16)
+                ## TODO this leaks shapes! since we overwrite each shape
                 compTilemap.tileCollisionShapes[index] = addShape(gclient.physic.space, newBoxShape(compTilemap.tileCollisionBodies[index], rect.width, rect.height, radius = 1))
                 compTilemap.tileCollisionShapes[index].friction = 0
+
+                ## Test trigger
+                if gid == 215 or gid == 214 or gid == 155:
+                  # Blumentopf
+                  compTilemap.tileCollisionShapes[index].sensor = true
+
                 # compTilemap.body = addBody(gclient.physic.space, newBody(mass, float.high))
                 # compTilemap.shape = addShape(gclient.physic.space, newCircleShape(compTilemap.body, radius, vzero))
               else:
-                echo "Collision shape not Supported: ", collisionShape.kind
+                echo "Collision shape not Supported: ", collisionShape.type
 
+  echo "Creating layer shpaes"
+  for objectGroup in map.objectGroups:
+    # nim_tiled cannot show which TiledObject we have
+    # but we know that these are polygons
+    # void DrawLineStrip(Vector2 *points, int pointsCount, Color color);   // Draw lines sequence
+    print objectGroup
+
+    # let color =
+    #   case objectGroup.name
+    #   of "Exit": Red
+    #   of "Next": Green
+    #   else: Black
+    for obj in objectGroup.objects:
+      if obj of TiledPolygon:
+        discard # TODO TiledPolygon
+        print TiledPolygon(obj)
+
+      else: # Rectangle
+        print obj.id
+        compTilemap.objCollisionBodies[obj.id] = addBody(gclient.physic.space, newStaticBody())
+        compTilemap.objCollisionBodies[obj.id].position = v(obj.x + (obj.width / 2), obj.y + (obj.height / 2))
+        compTilemap.objCollisionShapes[obj.id] = addShape(gclient.physic.space,
+          newBoxShape(compTilemap.objCollisionBodies[obj.id], obj.width, obj.height, radius = 1)
+        )
+
+      # TODO create collisions from the rest of the obj shapes
+    #   # drawLineStrip(addr vecs[0], vecs.len, color)
+    #   # var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
+
+    #   var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
+    #   drawLineStrip(addr vecs[0], vecs.len, color)
+  echo "done"
 # iterator tileIds*(map: TiledMap): int =
 #   ## yields all the tile ids in a TiledMap
 
