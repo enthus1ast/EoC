@@ -6,6 +6,7 @@ import assetLoader
 import typesAssetLoader
 import nim_tiled
 import std/intsets
+import chipmunk7
 var screenWidth = 800
 var screenHeight = 450
 
@@ -38,6 +39,9 @@ proc toVecs(points: seq[(float, float)], pos: Vector2): seq[Vector2] =
     result.add Vector2(x: point[0] + pos.x, y: point[1] + pos.y)
 
 proc drawTilemap*(gclient: GClient, map: TiledMap) =
+  ## Draws the tilemap
+  ## Draw tilemap could be optimized by generating the tilemap once,
+  ## Store it, then draw the whole tilemap in one draw call.
   let tileset = map.tilesets()[0]
   let texture = gclient.assets.textures[tileset.imagePath()]
   for layer in map.layers:
@@ -51,40 +55,42 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
           let destPos = Vector2(x: (xx * map.tilewidth).float, y: (yy * map.tileheight).float)
           drawTextureRec(texture, sourceReg, destPos, White)
 
-          ## Tile Collision shapes
-          if tileset.tiles.hasKey(gid - 1): # ids are are not correct in tiled tmx
-            let collisionShapes = tileset.tiles[gid - 1].collisionShapes
-            for collisionShape in collisionShapes:
-              case collisionShape.kind
-              of kindTiledTileCollisionShapesRect:
-                discard
-                let rect = TiledTileCollisionShapesRect(collisionShape)
-                # print rect, destPos
-                # print rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow
-                drawRectangleLines(rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow)
+          if gclient.debugDraw:
+            ## Tile Collision shapes
+            if tileset.tiles.hasKey(gid - 1): # ids are are not correct in tiled tmx
+              let collisionShapes = tileset.tiles[gid - 1].collisionShapes
+              for collisionShape in collisionShapes:
+                case collisionShape.kind
+                of kindTiledTileCollisionShapesRect:
+                  discard
+                  let rect = TiledTileCollisionShapesRect(collisionShape)
+                  # print rect, destPos
+                  # print rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow
+                  drawRectangleLines(rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow)
 
-              of kindTiledTileCollisionShapesPoint:
-                discard
-                print kindTiledTileCollisionShapesPoint, "not support"
-              else:
-                discard # unsupported shape
+                of kindTiledTileCollisionShapesPoint:
+                  discard
+                  print kindTiledTileCollisionShapesPoint, "not support"
+                else:
+                  discard # unsupported shape
 
   # Now we debug draw the polygons
   # we must later decide what we do with the polygons
-  for objectGroup in map.objectGroups:
-    # nim_tiled cannot show which TiledObject we have
-    # but we know that these are polygons
-    # void DrawLineStrip(Vector2 *points, int pointsCount, Color color);   // Draw lines sequence
-    let color =
-      case objectGroup.name
-      of "Exit": Red
-      of "Next": Green
-      else: Black
-    for obj in objectGroup.objects:
-      # print obj
-      var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
-      # print vecs
-      drawLineStrip(addr vecs[0], vecs.len, color)
+  if gclient.debugDraw:
+    for objectGroup in map.objectGroups:
+      # nim_tiled cannot show which TiledObject we have
+      # but we know that these are polygons
+      # void DrawLineStrip(Vector2 *points, int pointsCount, Color color);   // Draw lines sequence
+      let color =
+        case objectGroup.name
+        of "Exit": Red
+        of "Next": Green
+        else: Black
+      for obj in objectGroup.objects:
+        # print obj
+        var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
+        # print vecs
+        drawLineStrip(addr vecs[0], vecs.len, color)
 
 proc systemDraw*(gclient: GClient) =
   # var testSprite: Texture2D = loadTexture(getAppDir() / "assets/img/test.png")
@@ -93,8 +99,6 @@ proc systemDraw*(gclient: GClient) =
   # echo gclient.circle.position
   for idx, msg in enumerate(gclient.serverMessages):
     drawText( $msg , 0, 0 + ((screenHeight div 2) + (15 * idx)), 10, Darkgray)
-
-
 
   case gclient.clientState
   of MAIN_MENU:
@@ -106,7 +110,6 @@ proc systemDraw*(gclient: GClient) =
     #   text = newString(512)
     if textBox(Rectangle(x: 10, y:10, width:150, height:30), gclient.txtServer , textSize = 512, editMode = true):
       echo "TEXT BOX:", gclient.txtServer
-
     var btnConnect = button(Rectangle(x: 10, y:50, width:50, height:30), "Connect")
     if btnConnect:
       echo "CONNECT"
@@ -149,18 +152,6 @@ proc systemDraw*(gclient: GClient) =
     # clearBackground(Raywhite)
     clearBackground(Black)
 
-
-
-    # Draw some testimages
-    # for idxy in 0..50:
-    #   for idxx in 0..50:
-    #     drawTexture(
-    #       gclient.assets.textures["assets/img/test.png"],
-    #       0 + (idxx * 32),
-    #       0 + (idxy * 32),
-    #       White
-    #     )
-
     gclient.drawTilemap(gclient.assets.maps["assets/maps/demoTown.tmx"])
 
     # let mousePos = getMousePosition()
@@ -176,6 +167,8 @@ proc systemDraw*(gclient: GClient) =
         ## This is us, we can draw us directly
         drawText($compPlayer.id, compPlayer.pos.x.int - 20 , compPlayer.pos.y.int - 20 , 10, Blue)
         drawCircle(compPlayer.pos.x.int, compPlayer.pos.y.int, 5, RED)
+        drawCircle(compPlayer.body.position.x.int, compPlayer.body.position.y.int, 5, Green)
+
       else:
         ## these are others, more logic apply
         try:
@@ -189,6 +182,7 @@ proc systemDraw*(gclient: GClient) =
           let interpolated =  compPlayer.oldpos + (moveVec * percent)
 
           drawText($compPlayer.id, interpolated.x.int - 20, interpolated.y.int - 35 , 15, Black)
+          drawCircle(compPlayer.body.position.x.int, compPlayer.body.position.y.int, 5, Green)
           drawText(compName.name, interpolated.x.int - 20, interpolated.y.int - 20 , 15, Black)
           drawCircle(interpolated.x.int, interpolated.y.int, 5, RED)
         except:
@@ -200,8 +194,6 @@ proc systemDraw*(gclient: GClient) =
     # drawTextureRec(texture, Rectangle(x: 0.float, y: 0.float, width: 50.float, height: 50.float), (10.float, 10.float), White)
 
     # Draw the tilemap
-
-
 
     endMode2D()
 

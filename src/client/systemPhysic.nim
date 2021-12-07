@@ -12,8 +12,15 @@ proc newSystemPhysic*(): SystemPhysic =
   result = SystemPhysic()
   result.space = newSpace()
   result.space.gravity = v(0, 0)
+  # result.space.damping = 0.1
 
 proc systemPhysic*(gclient: GClient, delta: float) =
-  discard
+
+  # ## Slow players down over time
+  # for entPlayer in gclient.reg.entities(CompPlayer):
+  #   var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+  #   compPlayer.body.velocity = compPlayer.body.velocity * 0.95
+
+
 
   gclient.physic.space.step(delta)

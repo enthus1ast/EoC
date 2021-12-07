@@ -38,6 +38,7 @@ type
     oldpos*: Vector2 # we tween from oldpos
     pos*: Vector2    # to newpos in a "server tick time step"
     lastmove*: MonoTime #
+    body*: Body
     shape*: chipmunk7.Shape # the players main collision shape
 
   CompName* = ref object of Component
@@ -55,6 +56,7 @@ type
     players*: Table[Id, Entity]
     myPlayerId*: Id
     connected*: bool
+    debugDraw*: bool
 
     # Main Menu
     txtServer*: cstring
@@ -76,22 +78,56 @@ type
     ## So that they can store their stuff und not clutter the GClient type
     physic*: SystemPhysic
 
+    # currentMap*:
+
     # circle*: PhysicsBody # TODO test
     # bodies*: seq[PhysicsBody]
 
+# proc finalizePlayer(compPlayer: CompPlayer) =
+#   ## Destroys the collision shape and body of a player
+#   print "finalize player" #, compPlayer
+#   # Must remove the shape and body from the space first!
+#   # problem, how to get gclient obj?
+#   compPlayer.shape.destroy()
+#   compPlayer.body.destroy()
+
 proc finalizePlayer(compPlayer: CompPlayer) =
   ## Destroys the collision shape and body of a player
-  print "finalize player: ", compPlayer
+  print "finalize player" #, compPlayer
+  # Must remove the shape and body from the space first!
+  # problem, how to get gclient obj?
+  # compPlayer.shape.destroy()
+  # compPlayer.body.destroy()
+  # print gclient
+
+proc destroyPlayer*(gclient: GClient, entity: Entity, playerId: Id) =
+  var compPlayer = gclient.reg.getComponent(entity, CompPlayer)
+  gclient.physic.space.removeShape(compPlayer.shape)
+  gclient.physic.space.removeBody(compPlayer.body)
+  gclient.reg.destroyEntity(entity)
+  gclient.players.del(playerId)
 
 proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Entity =
   ## Creates a new player entity
   result = gclient.reg.newEntity()
-  var compPlayer = CompPlayer()
-  new(compPlayer, finalizePlayer)
+  var compPlayer: CompPlayer # = new(CompPlayer)
+  compPlayer = CompPlayer()
+  # new(compPlayer, finalizePlayer)
   compPlayer.id = playerId # the network id from netty
   compPlayer.pos = pos
   compPlayer.oldpos = pos # on create set both equal
   compPlayer.lastmove = getMonoTime()
+  let radius = 5.0
+  let mass = 1.0
+  # let moment = momentForCircle(mass, 0, radius, vzero)
+  # let moment = momentForCircle(mass, 0, radius, vzero)
+  # compPlayer.body = addBody(gclient.physic.space, newBody(mass, moment))
+  compPlayer.body = addBody(gclient.physic.space, newBody(mass, float.high))
+  compPlayer.body.position = v(pos.x, pos.y)
+  compPlayer.shape = addShape(gclient.physic.space, newCircleShape(compPlayer.body, radius, vzero))
+  compPlayer.shape.friction = 0.1
+  # cpConstraintSetMaxForce
+  # compPlayer.shape.maxForce = 10
   gclient.reg.addComponent(result, compPlayer)
   gclient.reg.addComponent(result, CompName(name: name))
 

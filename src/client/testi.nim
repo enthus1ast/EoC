@@ -40,7 +40,7 @@ gclient.camera = Camera2D(
 gclient.assets = newAssetLoader()
 gclient.assets.loadTexture("assets/img/test.png")
 gclient.assets.loadMap("assets/maps/demoTown.tmx")
-
+gclient.debugDraw = true
 gclient.reg = newRegistry()
 gclient.physic = newSystemPhysic()
 ## Loading sprites must be done after window initialization
@@ -75,9 +75,9 @@ copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.le
 #   if player.id == gclient.myPlayerId:
 
 
-
-
-
+converter toChipmunksVector(vec: Vector2): Vect =
+  result.x = vec.x
+  result.y = vec.y
 
 proc mainLoop(gclient: GClient) =
   initPhysics()
@@ -125,8 +125,9 @@ proc mainLoop(gclient: GClient) =
         let disco = fromFlatty(gmsg.data, GResPlayerDisconnects)
         print disco
         let entPlayer = gclient.players[disco.playerId]
-        gclient.reg.destroyEntity(entPlayer)
-        gclient.players.del(disco.playerId)
+        gclient.destroyPlayer(entPlayer, disco.playerId)
+        # gclient.reg.destroyEntity(entPlayer)
+        # gclient.players.del(disco.playerId)
         print gclient.players
       of Kind_PlayerMoved:
         # print "moved"
@@ -177,6 +178,9 @@ proc mainLoop(gclient: GClient) =
     if isKeyPressed(KeyboardKey.I):
       echo "I"
 
+    if isKeyPressed(KeyboardKey.O):
+      gclient.debugDraw = not gclient.debugDraw
+
     if isKeyPressed(KeyboardKey.M):
       if gclient.clientState == MAP:
         gclient.clientState = WORLD_MAP
@@ -219,6 +223,13 @@ proc mainLoop(gclient: GClient) =
         moveVector.y *= 2 ## TODO remove this; simulates a HACK
         moveVector.x *= 2 ## TODO remove this; simulates a HACK
 
+    if (gclient.myPlayerId != 0) and (not moved): # and moveVector.length > 0:
+      ## TODO this whole block must be gone
+      moveVector = (0.0, 0.0)
+      let entPlayer = gclient.myPlayer()
+      let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+      # echo "stop"
+      compPlayer.body.velocity = moveVector
 
 
     ## Net
@@ -233,11 +244,21 @@ proc mainLoop(gclient: GClient) =
       let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
       compPlayer.pos += moveVector
 
+
+      ## PHYSIC DEBUG
+      # compPlayer.body.applyImpulseAtLocalPoint(moveVector, v(0.0, 0.0))
+      compPlayer.body.velocity = moveVector * 100
+
+
       gmsg.data = toFlatty(gReqPlayerMoved)
       gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
       # gclient.moves[gclient.moveId] = gReqPlayerMoved
       gclient.moves[gclient.moveId] = compPlayer.pos
-
+    else:
+      ## PHYSIC DEBUG
+      # let entPlayer = gclient.myPlayer()
+      # let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+      # compPlayer.body.velocity = v(0,0)
 
     if gclient.clientState == CONNECTING or gclient.clientState == MAP: ## TODO
       if idx mod 60 == 0:

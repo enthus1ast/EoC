@@ -160,7 +160,7 @@ proc mainLoop(gserver: GServer) =
   while true:
     let startt = getMonoTime()
     gserver.main(delta)
-    print "tick"
+    # print "tick"
     let endt = getMonoTime()
     let took = (endt - startt).inMilliseconds
     # delta = took
