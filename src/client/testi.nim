@@ -75,7 +75,11 @@ copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.le
 #   if player.id == gclient.myPlayerId:
 
 
-converter toChipmunksVector(vec: Vector2): Vect =
+converter toChipmunksVector(vec: Vector2): Vect {.inline.} =
+  result.x = vec.x
+  result.y = vec.y
+
+converter toRaylibVector(vec: Vect): Vector2 {.inline.} =
   result.x = vec.x
   result.y = vec.y
 
@@ -115,6 +119,7 @@ proc mainLoop(gclient: GClient) =
         print gclient.myPlayerId
         gclient.clientState = MAP
         gclient.serverMessages.add("Connected to server yourId:" & $res.playerId)
+        gclient.currentMap = gclient.newMap("assets/maps/demoTown.tmx")
       of Kind_PlayerConnected:
         print Kind_PlayerConnected
         let res = fromFlatty(gmsg.data, GResPlayerConnected)
@@ -224,14 +229,24 @@ proc mainLoop(gclient: GClient) =
         moveVector.x *= 2 ## TODO remove this; simulates a HACK
 
     if (gclient.myPlayerId != 0) and (not moved): # and moveVector.length > 0:
-      ## TODO this whole block must be gone
-      moveVector = (0.0, 0.0)
+      # TODO this whole block must be gone
       let entPlayer = gclient.myPlayer()
       let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
-      # echo "stop"
-      compPlayer.body.velocity = moveVector
+      compPlayer.controlBody.position = compPlayer.body.position
+      compPlayer.controlBody.velocity = vzero
 
-
+    if (gclient.myPlayerId != 0):
+      let entPlayer = gclient.myPlayer()
+      let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+      compPlayer.pos = compPlayer.body.position
+    #   moveVector = (0.0, 0.0)
+    #   let entPlayer = gclient.myPlayer()
+    #   let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+    #   # echo "stop"
+    #   compPlayer.body.velocity = moveVector
+    # let entPlayer = gclient.myPlayer()
+    # let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+    # compPlayer.pos = compPlayer.body.position
     ## Net
     if moved:
       gclient.moveId.inc
@@ -242,12 +257,17 @@ proc mainLoop(gclient: GClient) =
       # Client prediction set position even if not aknowleged
       let entPlayer = gclient.myPlayer()
       let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
-      compPlayer.pos += moveVector
+      # compPlayer.pos += moveVector # TODO original one
+      # compPlayer.pos = compPlayer.body.position
 
 
       ## PHYSIC DEBUG
-      # compPlayer.body.applyImpulseAtLocalPoint(moveVector, v(0.0, 0.0))
-      compPlayer.body.velocity = moveVector * 100
+      # compPlayer.body.applyImpulseAtLocalPoint(moveVector * 1000 * getFrameTime()  , v(0.0, 0.0))
+      # compPlayer.body.velocity = moveVector * 100
+
+      compPlayer.controlBody.position = compPlayer.body.position + (moveVector * 10)
+      compPlayer.controlBody.velocity = moveVector * 100
+      # compPlayer.body.
 
 
       gmsg.data = toFlatty(gReqPlayerMoved)
@@ -258,6 +278,7 @@ proc mainLoop(gclient: GClient) =
       ## PHYSIC DEBUG
       # let entPlayer = gclient.myPlayer()
       # let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+      # compPlayer.controlBody.position = compPlayer.body.position
       # compPlayer.body.velocity = v(0,0)
 
     if gclient.clientState == CONNECTING or gclient.clientState == MAP: ## TODO
@@ -265,8 +286,8 @@ proc mainLoop(gclient: GClient) =
         gclient.sendKeepalive()
 
 
-    let delta = 1/60 # TODO
-    gclient.systemPhysic(delta)
+    # let delta = 1/60 # TODO
+    gclient.systemPhysic(getFrameTime())
     gclient.systemDraw()
 
     gclient.reg.cleanup()

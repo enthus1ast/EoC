@@ -62,7 +62,6 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
               for collisionShape in collisionShapes:
                 case collisionShape.kind
                 of kindTiledTileCollisionShapesRect:
-                  discard
                   let rect = TiledTileCollisionShapesRect(collisionShape)
                   # print rect, destPos
                   # print rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow
@@ -87,16 +86,16 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
         of "Next": Green
         else: Black
       for obj in objectGroup.objects:
-        # print obj
+        # var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
+        # drawLineStrip(addr vecs[0], vecs.len, color)
+
         var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
-        # print vecs
         drawLineStrip(addr vecs[0], vecs.len, color)
 
+
 proc systemDraw*(gclient: GClient) =
-  # var testSprite: Texture2D = loadTexture(getAppDir() / "assets/img/test.png")
   beginDrawing()
   gclient.centerCamera()
-  # echo gclient.circle.position
   for idx, msg in enumerate(gclient.serverMessages):
     drawText( $msg , 0, 0 + ((screenHeight div 2) + (15 * idx)), 10, Darkgray)
 
@@ -124,11 +123,6 @@ proc systemDraw*(gclient: GClient) =
     # tents etc.
     discard
     clearBackground(White)
-    # drawRectangle(0, 0, 1024, 1024, BLACK)
-
-    # beginMode2D gclient.camera
-    # gclient.centerCamera()
-    # drawWorldMapMouseCoord()
     let wmp = getMousePosition()
     let mapSize = 512
     let quadSize = 32
@@ -140,26 +134,20 @@ proc systemDraw*(gclient: GClient) =
       let msg = fmt"{xcord}x{ycord}  ({wmp.x}x{wmp.y})"
       let mp = getMousePosition()
       drawText(msg, mp.x.int, (mp.y + 25).int, 12, Black)
-
-    # drawGrid(mapSize, (10.0, 10.0))
     drawGrid(mapSize, (0.0, 0.0))
-    # endMode2D()
 
   of MAP:
     beginMode2D gclient.camera
     gclient.camera.target = gclient.reg.getComponent(gclient.myPlayer(), CompPlayer).pos
     let curTime = getMonoTime()
-    # clearBackground(Raywhite)
     clearBackground(Black)
 
     gclient.drawTilemap(gclient.assets.maps["assets/maps/demoTown.tmx"])
 
-    # let mousePos = getMousePosition()
     let mousePos = gclient.getWorldMousePosition()
-    # drawCircle(playerPos.x.int, playerPos.y.int, 5, LIGHTGRAY)
 
     drawCircle(mousePos.x.int, mousePos.y.int, 10, Blue)
-    # draw all other players
+    ## draw all players
     for id, entPlayer in gclient.players:
       let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
       let compName = gclient.reg.getComponent(entPlayer, CompName)
@@ -183,6 +171,7 @@ proc systemDraw*(gclient: GClient) =
 
           drawText($compPlayer.id, interpolated.x.int - 20, interpolated.y.int - 35 , 15, Black)
           drawCircle(compPlayer.body.position.x.int, compPlayer.body.position.y.int, 5, Green)
+          drawCircle(compPlayer.body.position.x.int, compPlayer.controlBody.position.y.int, 5, Yellow)
           drawText(compName.name, interpolated.x.int - 20, interpolated.y.int - 20 , 15, Black)
           drawCircle(interpolated.x.int, interpolated.y.int, 5, RED)
         except:

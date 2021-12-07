@@ -15,7 +15,6 @@ proc newSystemPhysic*(): SystemPhysic =
   # result.space.damping = 0.1
 
 proc systemPhysic*(gclient: GClient, delta: float) =
-
   # ## Slow players down over time
   # for entPlayer in gclient.reg.entities(CompPlayer):
   #   var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)

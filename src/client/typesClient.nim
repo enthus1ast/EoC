@@ -14,6 +14,7 @@ import netty, os, flatty
 import typesAssetLoader
 import ecs
 import typesSystemPhysic
+import nim_tiled
 # import
 
 export math
@@ -38,11 +39,21 @@ type
     oldpos*: Vector2 # we tween from oldpos
     pos*: Vector2    # to newpos in a "server tick time step"
     lastmove*: MonoTime #
-    body*: Body
+    body*: chipmunk7.Body
     shape*: chipmunk7.Shape # the players main collision shape
+    dummyBody*: chipmunk7.Body
+    dummyJoint*: chipmunk7.Constraint
+    controlBody*: chipmunk7.Body
+    controlJoint*: chipmunk7.Constraint
+
 
   CompName* = ref object of Component
     name*: string
+
+  CompTilemap* = ref object of Component
+    tiles*: Table[Vector2, Entity]
+    tileCollisionBodies*: Table[int, chipmunk7.Body]
+    tileCollisionShapes*: Table[int, chipmunk7.Shape]
 
   # CompMap* = ref object of Component
   #   tiled*: TiledMap
@@ -78,7 +89,7 @@ type
     ## So that they can store their stuff und not clutter the GClient type
     physic*: SystemPhysic
 
-    # currentMap*:
+    currentMap*: Entity
 
     # circle*: PhysicsBody # TODO test
     # bodies*: seq[PhysicsBody]
@@ -126,15 +137,71 @@ proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Ent
   compPlayer.body.position = v(pos.x, pos.y)
   compPlayer.shape = addShape(gclient.physic.space, newCircleShape(compPlayer.body, radius, vzero))
   compPlayer.shape.friction = 0.1
-  # cpConstraintSetMaxForce
-  # compPlayer.shape.maxForce = 10
+
+  ## We create a dummy static object
+  ## that we use to restrict movements
+  ## to emulate linear friction
+  # compPlayer.dummyBody = gclient.physic.space.staticBody()
+  # compPlayer.dummyJoint = addConstraint(gclient.physic.space,
+  #   newPivotJoint(compPlayer.dummyBody, compPlayer.body, vzero, vzero)
+  # )
+  # compPlayer.dummyJoint.maxBias = 0 # disable joint correction
+  # compPlayer.dummyJoint.maxForce = 1000.0 # emulate linear friction
+
+  ## We create a "control" body, this body we move around
+  ## on keypresses
+  compPlayer.controlBody = newKinematicBody()
+  compPlayer.controlJoint = addConstraint(gclient.physic.space,
+    newPivotJoint(compPlayer.controlBody, compPlayer.body, vzero, vzero)
+  )
+  compPlayer.controlJoint.maxBias = 0 # disable joint correction
+  compPlayer.controlJoint.errorBias = 0 # attempt to fully correct the joint each step
+  compPlayer.controlJoint.maxForce = 1000.0 # emulate linear friction
+
   gclient.reg.addComponent(result, compPlayer)
   gclient.reg.addComponent(result, CompName(name: name))
 
-proc newTilemap*(gclient: GClient, mapPath: string): Entity =
-  ## Creates a new tilemap entity,
-  ## if the map data was not loaded previously, it gets loaded.
-  result = gclient.reg.newEntity()
 
-proc newTile*(gclient: GClient, imgKey: string): Entity =
+proc newMap*(gclient: GClient, mapKey: string): Entity =
+  ## Creates a new tilemap entity,
+  echo "Loading map"
   result = gclient.reg.newEntity()
+  let map = gclient.assets.maps["assets/maps/demoTown.tmx"]
+  var compTilemap = CompTilemap()
+  ## Todo this is just copied from the systemDraw
+  let tileset = map.tilesets()[0]
+  let texture = gclient.assets.textures[tileset.imagePath()]
+  for layer in map.layers:
+    for xx in 0..<layer.height:
+      for yy in 0..<layer.width:
+        let index = xx + yy * layer.width
+        let gid = layer.tiles[index]
+        if gid != 0:
+          let region = tileset.regions[gid - 1]
+          let sourceReg = Rectangle(x: region.x.float, y: region.y.float, width: region.width.float, height: region.height.float)
+          let destPos = Vector2(x: (xx * map.tilewidth).float, y: (yy * map.tileheight).float)
+          # drawTextureRec(texture, sourceReg, destPos, White)
+          ## Tile Collision shapes
+          if tileset.tiles.hasKey(gid - 1): # ids are are not correct in tiled tmx
+            let collisionShapes = tileset.tiles[gid - 1].collisionShapes
+            for collisionShape in collisionShapes:
+              case collisionShape.kind
+              of kindTiledTileCollisionShapesRect:
+                let rect = TiledTileCollisionShapesRect(collisionShape)
+                print "Created static shape at:", destPos.x, destPos.y, rect.width, rect.height
+                compTilemap.tileCollisionBodies[index] = addBody(gclient.physic.space, newStaticBody())
+                compTilemap.tileCollisionBodies[index].position = v(destPos.x + 16, destPos.y + 16)
+                compTilemap.tileCollisionShapes[index] = addShape(gclient.physic.space, newBoxShape(compTilemap.tileCollisionBodies[index], rect.width, rect.height, radius = 1))
+                compTilemap.tileCollisionShapes[index].friction = 0
+                # compTilemap.body = addBody(gclient.physic.space, newBody(mass, float.high))
+                # compTilemap.shape = addShape(gclient.physic.space, newCircleShape(compTilemap.body, radius, vzero))
+              else:
+                echo "Collision shape not Supported: ", collisionShape.kind
+
+# iterator tileIds*(map: TiledMap): int =
+#   ## yields all the tile ids in a TiledMap
+
+
+# proc newTile*(gclient: GClient, imgKey: string): Entity =
+#   ## Creates a new tile entity
+#   result = gclient.reg.newEntity()
