@@ -53,7 +53,7 @@ type
   CompTilemap* = ref object of Component
     tiles*: Table[Vector2, Entity]
     tileCollisionBodies*: Table[int, chipmunk7.Body]
-    tileCollisionShapes*: Table[int, chipmunk7.Shape]
+    tileCollisionShapes*: Table[int, seq[chipmunk7.Shape]] ## one tile can have multiple shapes
     mapBoundaryBody*: chipmunk7.Body
     mapBoundarieShapes*: array[4, chipmunk7.Shape]
     objCollisionBodies*: Table[int, chipmunk7.Body]
@@ -116,12 +116,12 @@ proc finalizePlayer(compPlayer: CompPlayer) =
   # print gclient
 
 proc destroyPlayer*(gclient: GClient, entity: Entity, playerId: Id) =
-  var compPlayer = gclient.reg.getComponent(entity, CompPlayer)
-  gclient.physic.space.removeShape(compPlayer.shape)
-  gclient.physic.space.removeBody(compPlayer.body)
-  gclient.reg.destroyEntity(entity)
-  gclient.players.del(playerId)
-
+  print "destroyPlayer can be deleted!"
+  # var compPlayer = gclient.reg.getComponent(entity, CompPlayer)
+  # gclient.physic.space.removeShape(compPlayer.shape)
+  # gclient.physic.space.removeBody(compPlayer.body)
+  # gclient.reg.destroyEntity(entity)
+  # gclient.players.del(playerId)
 
 ## TODO this could be generic
 proc toVecs*(points: seq[(float, float)], pos: Vector2): seq[Vector2] =
@@ -177,6 +177,19 @@ proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Ent
   gclient.reg.addComponent(result, compPlayer)
   gclient.reg.addComponent(result, CompName(name: name))
 
+  ## Register destructor
+  proc compPlayerDestructor(reg: Registry, entity: Entity, comp: Component) {.closure.} =
+    print "in implicit internal destructor: " #, CompPlayer(comp)
+    var compPlayer = CompPlayer(comp) #gclient.reg.getComponent(entity, CompPlayer)
+    gclient.physic.space.removeShape(compPlayer.shape)
+    gclient.physic.space.removeBody(compPlayer.body)
+    gclient.physic.space.removeConstraint(compPlayer.controlJoint)
+    # gclient.physic.space.removeBody(compPlayer.controlBody) # static body must not be removed
+    # gclient.reg.destroyEntity(entity) # TODO double destroy?
+    # gclient.players.del(playerId)
+    gclient.players.del(compPlayer.id) # TODO check if the same
+  gclient.reg.addComponentDestructor(CompPlayer, compPlayerDestructor)
+
 
 proc newMap*(gclient: GClient, mapKey: string): Entity =
   ## Creates a new tilemap entity,
@@ -213,7 +226,7 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
         let gid = layer.tiles[index]
         if gid != 0:
           let region = tileset.regions[gid - 1]
-          let sourceReg = Rectangle(x: region.x.float, y: region.y.float, width: region.width.float, height: region.height.float)
+          # let sourceReg = Rectangle(x: region.x.float, y: region.y.float, width: region.width.float, height: region.height.float)
           let destPos = Vector2(x: (xx * map.tilewidth).float, y: (yy * map.tileheight).float)
           # drawTextureRec(texture, sourceReg, destPos, White)
           ## Tile Collision shapes
@@ -226,14 +239,16 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
               if collisionShape of TiledTileCollisionShapesRect:
                 let rect = TiledTileCollisionShapesRect(collisionShape)
                 print "Created static shape at:", destPos.x, destPos.y, rect.width, rect.height
-                ## TODO this leaks shapes! since we overwrite each shape
-                compTilemap.tileCollisionShapes[index] = addShape(gclient.physic.space, newBoxShape(compTilemap.tileCollisionBodies[index], rect.width, rect.height, radius = 1))
-                compTilemap.tileCollisionShapes[index].friction = 0
+                if not compTilemap.tileCollisionShapes.hasKey(index):
+                  compTilemap.tileCollisionShapes[index] = @[]
+                var shape = addShape(gclient.physic.space, newBoxShape(compTilemap.tileCollisionBodies[index], rect.width, rect.height, radius = 1))
+                shape.friction = 0
+                compTilemap.tileCollisionShapes[index].add shape
 
                 ## Test trigger
                 if gid == 215 or gid == 214 or gid == 155:
                   # Blumentopf
-                  compTilemap.tileCollisionShapes[index].sensor = true
+                  compTilemap.tileCollisionShapes[index][0].sensor = true
 
                 # compTilemap.body = addBody(gclient.physic.space, newBody(mass, float.high))
                 # compTilemap.shape = addShape(gclient.physic.space, newCircleShape(compTilemap.body, radius, vzero))
@@ -254,7 +269,7 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
     #   else: Black
     for obj in objectGroup.objects:
       if obj of TiledPolygon:
-        discard # TODO TiledPolygon
+        # TODO convex shapes does not work yet.
         # print TiledPolygon(obj)
         echo "Create Poly shape"
         var poly = TiledPolygon(obj)

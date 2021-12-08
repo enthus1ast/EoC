@@ -130,7 +130,8 @@ proc mainLoop(gclient: GClient) =
         let disco = fromFlatty(gmsg.data, GResPlayerDisconnects)
         print disco
         let entPlayer = gclient.players[disco.playerId]
-        gclient.destroyPlayer(entPlayer, disco.playerId)
+        # gclient.destroyPlayer(entPlayer, disco.playerId)
+        gclient.reg.destroyEntity(entPlayer)
         # gclient.reg.destroyEntity(entPlayer)
         # gclient.players.del(disco.playerId)
         print gclient.players
@@ -285,12 +286,9 @@ proc mainLoop(gclient: GClient) =
       if idx mod 60 == 0:
         gclient.sendKeepalive()
 
-
-    # let delta = 1/60 # TODO
     gclient.systemPhysic(getFrameTime())
     gclient.systemDraw()
-
-    gclient.reg.cleanup()
+    gclient.reg.cleanup() # periodically remove invalidated entities
 
   closePhysics()
   closeWindow()
