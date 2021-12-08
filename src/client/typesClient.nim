@@ -122,6 +122,18 @@ proc destroyPlayer*(gclient: GClient, entity: Entity, playerId: Id) =
   gclient.reg.destroyEntity(entity)
   gclient.players.del(playerId)
 
+
+## TODO this could be generic
+proc toVecs*(points: seq[(float, float)], pos: Vector2): seq[Vector2] =
+  result = @[]
+  for point in points:
+    result.add Vector2(x: point[0] + pos.x, y: point[1] + pos.y)
+
+proc toVecsChipmunks*(points: seq[(float, float)], pos: Vector2): seq[Vect] =
+  result = @[]
+  for point in points:
+    result.add Vect(x: point[0] + pos.x, y: point[1] + pos.y)
+
 proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Entity =
   ## Creates a new player entity
   result = gclient.reg.newEntity()
@@ -233,7 +245,7 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
     # nim_tiled cannot show which TiledObject we have
     # but we know that these are polygons
     # void DrawLineStrip(Vector2 *points, int pointsCount, Color color);   // Draw lines sequence
-    print objectGroup
+    # print objectGroup
 
     # let color =
     #   case objectGroup.name
@@ -243,7 +255,19 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
     for obj in objectGroup.objects:
       if obj of TiledPolygon:
         discard # TODO TiledPolygon
-        print TiledPolygon(obj)
+        # print TiledPolygon(obj)
+        echo "Create Poly shape"
+        var poly = TiledPolygon(obj)
+        compTilemap.objCollisionBodies[obj.id] = addBody(gclient.physic.space, newStaticBody())
+        compTilemap.objCollisionBodies[obj.id].position = v(obj.x, obj.y)
+        # var vecs = poly.points.toVecsChipmunks((obj.x, obj.y))
+        var vecs = poly.points.toVecsChipmunks((0.0, 0.0))
+        compTilemap.objCollisionShapes[obj.id] = addShape(gclient.physic.space,
+          newPolyShape(compTilemap.objCollisionBodies[obj.id], poly.points.len , addr vecs[0], 1)
+        )
+
+        # proc newPolyShape*(body: Body; count: cint; verts: ptr Vect; radius: Float): PolyShape {.cdecl, importc: "cpPolyShapeNewRaw".}
+
 
       else: # Rectangle
         print obj.id

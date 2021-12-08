@@ -33,11 +33,6 @@ converter toReg(tiledRegion: TiledRegion): Rectangle =
     height: tiledRegion.height.float,
   )
 
-proc toVecs(points: seq[(float, float)], pos: Vector2): seq[Vector2] =
-  result = @[]
-  for point in points:
-    result.add Vector2(x: point[0] + pos.x, y: point[1] + pos.y)
-
 proc drawTilemap*(gclient: GClient, map: TiledMap) =
   ## Draws the tilemap
   ## Draw tilemap could be optimized by generating the tilemap once,
