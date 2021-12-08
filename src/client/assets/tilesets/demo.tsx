@@ -45,6 +45,25 @@
    <object id="1" x="7" y="3" width="18" height="28"/>
   </objectgroup>
  </tile>
+ <tile id="160">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="32">
+    <polygon points="0,0 32,-32 0,-32"/>
+   </object>
+  </objectgroup>
+ </tile>
+ <tile id="161">
+  <objectgroup draworder="index" id="2">
+   <object id="4" x="0" y="0" width="32" height="6"/>
+  </objectgroup>
+ </tile>
+ <tile id="162">
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="0" y="3">
+    <polygon points="0,-3 32,29 32,-3"/>
+   </object>
+  </objectgroup>
+ </tile>
  <tile id="163">
   <objectgroup draworder="index" id="2">
    <object id="1" x="0" y="0" width="32" height="32"/>

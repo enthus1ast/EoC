@@ -25,18 +25,19 @@ proc drawGrid(gridsize: int, offset: Vector2, color = Black) =
     drawLine((idx * 32) + offset.x.int, 0 + offset.y.int, (idx * 32) + offset.x.int, gridsize + offset.y.int, color)
     drawLine(0 + offset.x.int, (idx * 32) + offset.y.int, gridsize + offset.x.int, (idx * 32) + offset.y.int, color)
 
-converter toReg(tiledRegion: TiledRegion): Rectangle =
-  return Rectangle(
-    x: tiledRegion.x.float,
-    y: tiledRegion.y.float,
-    width: tiledRegion.width.float,
-    height: tiledRegion.height.float,
-  )
+# converter toReg(tiledRegion: TiledRegion): Rectangle =
+#   return Rectangle(
+#     x: tiledRegion.x.float,
+#     y: tiledRegion.y.float,
+#     width: tiledRegion.width.float,
+#     height: tiledRegion.height.float,
+#   )
 
 proc drawTilemap*(gclient: GClient, map: TiledMap) =
   ## Draws the tilemap
   ## Draw tilemap could be optimized by generating the tilemap once,
   ## Store it, then draw the whole tilemap in one draw call.
+  # TODO only draw the tiles that are visible
   let tileset = map.tilesets()[0]
   let texture = gclient.assets.textures[tileset.imagePath()]
   for layer in map.layers:
@@ -63,6 +64,13 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
                 elif collisionShape of TiledTileCollisionShapesPoint:
                   discard
                   print "not support"
+                elif collisionShape of TiledTileCollisionShapesPolygon:
+                  # print TiledTileCollisionShapesPolygon
+                  let poly = TiledTileCollisionShapesPolygon(collisionShape)
+                  var points = poly.points.toVecs( Vector2(x: destPos.x, y: destPos.y) )
+                  # last to first is missing add it here
+                  points.add points[0]
+                  drawLineStrip(addr points[0], points.len, Yellow)
                 else:
                   discard # unsupported shape
 

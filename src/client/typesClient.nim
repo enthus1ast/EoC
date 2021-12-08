@@ -113,20 +113,29 @@ type
     currentMap*: Entity
 
 
-## TODO this could be generic
-proc toVecs*(points: seq[(float, float)], pos: Vector2): seq[Vector2] =
+## TODO these could be generic
+proc toVecs*(points: seq[(float, float)], pos: Vector2): seq[Vector2] {.inline.} =
   result = @[]
   for point in points:
     result.add Vector2(x: point[0] + pos.x, y: point[1] + pos.y)
 
-proc toVecsChipmunks*(points: seq[(float, float)], pos: Vector2): seq[Vect] =
+proc toVecsChipmunks*(points: seq[(float, float)], pos: Vector2): seq[Vect] {.inline.} =
   result = @[]
   for point in points:
     result.add Vect(x: point[0] + pos.x, y: point[1] + pos.y)
 
-iterator gen4Lines[T](x, y, width, height: float): tuple[aa: T, bb: T] =
+converter toChipmunksVector*(vec: Vector2): Vect {.inline.} =
+  result.x = vec.x
+  result.y = vec.y
+
+converter toRaylibVector*(vec: Vect): Vector2 {.inline.} =
+  result.x = vec.x
+  result.y = vec.y
+
+iterator gen4Lines*[T](x, y, width, height: float): tuple[aa: T, bb: T] {.inline.} =
   ## this generates 4 lines forming a rectangle
   ## generates them clockwise
+  ## aa := start ; bb := end  of a line
   yield (aa: T(x: x, y: y),                  bb: T(x: x + width, y: y))
   yield (aa: T(x: x + width, y: y),          bb: T(x: x + width, y: y + height))
   yield (aa: T(x: x + width, y: y + height), bb: T(x: x, y: y + height))
@@ -183,23 +192,10 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
   let widthPixel = (map.width * map.tilewidth).float
   let heightPixel = (map.height * map.tileheight).float
   compTilemap.mapBoundaryBody = addBody(gclient.physic.space, newStaticBody())
-  # TODO these "draw rect frames" will come up more often in this project: make a generic iterator for this
   for (idx, line) in enumerate gen4Lines[Vect](x = 0.0, y = 0.0, width = widthPixel, height = heightPixel):
     compTilemap.mapBoundarieShapes[idx] = gclient.physic.space.addShape(
       newSegmentShape(compTilemap.mapBoundaryBody, line.aa, line.bb, 2)
     )
-  # compTilemap.mapBoundarieShapes[0] = gclient.physic.space.addShape(
-  #   newSegmentShape(compTilemap.mapBoundaryBody, v(0.0, 0.0), v(widthPixel, 0.0), 2)
-  # )
-  # compTilemap.mapBoundarieShapes[1] = gclient.physic.space.addShape(
-  #   newSegmentShape(compTilemap.mapBoundaryBody, v(widthPixel, 0.0), v(widthPixel, heightPixel), 2)
-  # )
-  # compTilemap.mapBoundarieShapes[2] = gclient.physic.space.addShape(
-  #   newSegmentShape(compTilemap.mapBoundaryBody, v(widthPixel, heightPixel), v(0.0, heightPixel), 2)
-  # )
-  # compTilemap.mapBoundarieShapes[3] = gclient.physic.space.addShape(
-  #   newSegmentShape(compTilemap.mapBoundaryBody, v(0.0, heightPixel), v(0.0, 0.0), 2)
-  # )
 
   ## TODO this is mostly copied from the systemDraw, deduplicate code
   let tileset = map.tilesets()[0]
@@ -223,7 +219,7 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
             for collisionShape in collisionShapes:
               if collisionShape of TiledTileCollisionShapesRect:
                 let rect = TiledTileCollisionShapesRect(collisionShape)
-                print "Created static shape at:", destPos.x, destPos.y, rect.width, rect.height
+                print "Created TiledTileCollisionShapesRect shape at:", destPos.x, destPos.y, rect.width, rect.height
                 if not compTilemap.tileCollisionShapes.hasKey(index):
                   compTilemap.tileCollisionShapes[index] = @[]
                 var shape = addShape(gclient.physic.space, newBoxShape(compTilemap.tileCollisionBodies[index], rect.width, rect.height, radius = 1))
@@ -237,6 +233,22 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
 
                 # compTilemap.body = addBody(gclient.physic.space, newBody(mass, float.high))
                 # compTilemap.shape = addShape(gclient.physic.space, newCircleShape(compTilemap.body, radius, vzero))
+              elif collisionShape of TiledTileCollisionShapesPolygon:
+                print "Created TiledTileCollisionShapesPolygon shape at:", destPos.x, destPos.y
+                if not compTilemap.tileCollisionShapes.hasKey(index):
+                  compTilemap.tileCollisionShapes[index] = @[]
+                let poly = TiledTileCollisionShapesPolygon(collisionShape)
+                var vecs = poly.points.toVecsChipmunks((0.0, 0.0))
+                var shape = addShape(gclient.physic.space,
+                  # newBoxShape(compTilemap.tileCollisionBodies[index], rect.width, rect.height, radius = 1)
+                  newPolyShape(compTilemap.tileCollisionBodies[index], poly.points.len , addr vecs[0], 1)
+                )
+                shape.friction = 0
+                compTilemap.tileCollisionShapes[index].add shape
+                # compTilemap.tileCollisionShapes[index] = addShape(gclient.physic.space,
+                #   newPolyShape(compTilemap.objCollisionBodies[obj.id], poly.points.len , addr vecs[0], 1)
+                # )
+
               else:
                 echo "Collision shape not Supported: ", collisionShape.type
 
@@ -264,17 +276,35 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
         compTilemap.objCollisionShapes[obj.id] = addShape(gclient.physic.space,
           newBoxShape(compTilemap.objCollisionBodies[obj.id], obj.width, obj.height, radius = 1)
         )
-
       # TODO create collisions from the rest of the obj shapes
-    #   # drawLineStrip(addr vecs[0], vecs.len, color)
-    #   # var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
 
-    #   var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
-    #   drawLineStrip(addr vecs[0], vecs.len, color)
   echo "done"
+
+  ## Register destructor
+  proc compTilemapDestructor(reg: Registry, entity: Entity, comp: Component) {.closure.} =
+    print "in implicit internal tilemap destructor: "
+    var compTilemap = CompTilemap(comp)
+
+    ## Remove obj collision
+    for objCollisionShape in compTilemap.objCollisionShapes.values:
+      gclient.physic.space.removeShape(objCollisionShape)
+    for objCollisionBody in compTilemap.objCollisionBodies.values:
+      gclient.physic.space.removeBody(objCollisionBody)
+
+    ## Remove tile collision
+    for tileCollisionShapes in compTilemap.tileCollisionShapes.values:
+      for tileCollisionShape in tileCollisionShapes:
+        gclient.physic.space.removeShape(tileCollisionShape)
+    for tileCollisionBody in compTilemap.tileCollisionBodies.values:
+      gclient.physic.space.removeBody(tileCollisionBody)
+
+  # Register in the ecs
+  gclient.reg.addComponentDestructor(CompTilemap, compTilemapDestructor)
+
+
+
 # iterator tileIds*(map: TiledMap): int =
 #   ## yields all the tile ids in a TiledMap
-
 
 # proc newTile*(gclient: GClient, imgKey: string): Entity =
 #   ## Creates a new tile entity

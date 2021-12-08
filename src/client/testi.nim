@@ -187,6 +187,9 @@ proc mainLoop(gclient: GClient) =
     if isKeyPressed(KeyboardKey.O):
       gclient.debugDraw = not gclient.debugDraw
 
+    # if isKeyPressed(KeyboardKey.L):
+    #   gclient.reg.destroyEntity(gclient.currentMap)
+
     if isKeyPressed(KeyboardKey.M):
       if gclient.clientState == MAP:
         gclient.clientState = WORLD_MAP
