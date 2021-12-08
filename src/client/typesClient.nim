@@ -46,9 +46,34 @@ type
     controlBody*: chipmunk7.Body
     controlJoint*: chipmunk7.Constraint
 
-
   CompName* = ref object of Component
     name*: string
+
+  ## Some future components
+  CompHealth* = ref object of Component
+    health*: int
+    maxHealth*: int
+
+  CompRadiation* = ref object of Component
+    radiation*: int ## Radiation reduces the CompHealth.maxHealth permanently (until cured)
+
+  CompPoison* = ref object of Component
+    poisonAmount*: int ## how many "posion" you have
+    poisonStrength*: int ## how strong this poison is
+
+  CompSpecial* = ref object of Component
+    strength*: int ## which modifies Hit Points, melee damage, and Carry Weight.
+    perception*: int ## which modifies Sight, Sequence, and ranged combat distance modifiers.
+    endurance*: int ## which modifies Hit Points, Poison and Rad Resistance, Healing Rate and additional Hit Points per level.
+    charisma*: int ## which modifies Party Points, NPC reactions, and more.
+    intelligence*: int ## which modifies additional Skill points per level, dialogue options, and many Skills.
+    agility*: int ## which modifies Action Points, Armor Class, and some Skills.
+    luck*: int ## which modifies critical Bypass, weapon failures, and certain unseen factors as you play.
+
+  CompLevel* = ref object of Component
+    level*: int
+    xp*: int
+
 
   CompTilemap* = ref object of Component
     tiles*: Table[Vector2, Entity]
@@ -66,8 +91,6 @@ type
     nclient*: Reactor
     clientState*: ClientState
     c2s*: Connection
-    # players*: Table[Id, Vector2]
-    # players*: Table[Id, CompPlayer]
     players*: Table[Id, Entity]
     myPlayerId*: Id
     connected*: bool
@@ -78,50 +101,17 @@ type
     moveId*: int32
     # moves*: Table[int32, GReqPlayerMoved]
     moves*: Table[int32, Vector2]
-
     targetServerFps*: uint8
-
     serverMessages*: Chatbox
-
     camera*: Camera2D
-
     assets*: AssetLoader
-
     reg*: Registry
 
     ## Ideally the systems have their own datatype
     ## So that they can store their stuff und not clutter the GClient type
     physic*: SystemPhysic
-
     currentMap*: Entity
 
-    # circle*: PhysicsBody # TODO test
-    # bodies*: seq[PhysicsBody]
-
-# proc finalizePlayer(compPlayer: CompPlayer) =
-#   ## Destroys the collision shape and body of a player
-#   print "finalize player" #, compPlayer
-#   # Must remove the shape and body from the space first!
-#   # problem, how to get gclient obj?
-#   compPlayer.shape.destroy()
-#   compPlayer.body.destroy()
-
-proc finalizePlayer(compPlayer: CompPlayer) =
-  ## Destroys the collision shape and body of a player
-  print "finalize player" #, compPlayer
-  # Must remove the shape and body from the space first!
-  # problem, how to get gclient obj?
-  # compPlayer.shape.destroy()
-  # compPlayer.body.destroy()
-  # print gclient
-
-proc destroyPlayer*(gclient: GClient, entity: Entity, playerId: Id) =
-  print "destroyPlayer can be deleted!"
-  # var compPlayer = gclient.reg.getComponent(entity, CompPlayer)
-  # gclient.physic.space.removeShape(compPlayer.shape)
-  # gclient.physic.space.removeBody(compPlayer.body)
-  # gclient.reg.destroyEntity(entity)
-  # gclient.players.del(playerId)
 
 ## TODO this could be generic
 proc toVecs*(points: seq[(float, float)], pos: Vector2): seq[Vector2] =
@@ -134,35 +124,29 @@ proc toVecsChipmunks*(points: seq[(float, float)], pos: Vector2): seq[Vect] =
   for point in points:
     result.add Vect(x: point[0] + pos.x, y: point[1] + pos.y)
 
+iterator gen4Lines[T](x, y, width, height: float): tuple[aa: T, bb: T] =
+  ## this generates 4 lines forming a rectangle
+  ## generates them clockwise
+  yield (aa: T(x: x, y: y),                  bb: T(x: x + width, y: y))
+  yield (aa: T(x: x + width, y: y),          bb: T(x: x + width, y: y + height))
+  yield (aa: T(x: x + width, y: y + height), bb: T(x: x, y: y + height))
+  yield (aa: T(x: x, y: y + height),         bb: T(x: x, y: y))
+
 proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Entity =
   ## Creates a new player entity
   result = gclient.reg.newEntity()
   var compPlayer: CompPlayer # = new(CompPlayer)
   compPlayer = CompPlayer()
-  # new(compPlayer, finalizePlayer)
   compPlayer.id = playerId # the network id from netty
   compPlayer.pos = pos
   compPlayer.oldpos = pos # on create set both equal
   compPlayer.lastmove = getMonoTime()
-  let radius = 5.0
-  let mass = 1.0
-  # let moment = momentForCircle(mass, 0, radius, vzero)
-  # let moment = momentForCircle(mass, 0, radius, vzero)
-  # compPlayer.body = addBody(gclient.physic.space, newBody(mass, moment))
+  let radius = 5.0 # TODO these must be configured globally
+  let mass = 1.0 # TODO these must be configured globally
   compPlayer.body = addBody(gclient.physic.space, newBody(mass, float.high))
   compPlayer.body.position = v(pos.x, pos.y)
   compPlayer.shape = addShape(gclient.physic.space, newCircleShape(compPlayer.body, radius, vzero))
-  compPlayer.shape.friction = 0.1
-
-  ## We create a dummy static object
-  ## that we use to restrict movements
-  ## to emulate linear friction
-  # compPlayer.dummyBody = gclient.physic.space.staticBody()
-  # compPlayer.dummyJoint = addConstraint(gclient.physic.space,
-  #   newPivotJoint(compPlayer.dummyBody, compPlayer.body, vzero, vzero)
-  # )
-  # compPlayer.dummyJoint.maxBias = 0 # disable joint correction
-  # compPlayer.dummyJoint.maxForce = 1000.0 # emulate linear friction
+  compPlayer.shape.friction = 0.1 # TODO these must be configured globally
 
   ## We create a "control" body, this body we move around
   ## on keypresses
@@ -184,9 +168,6 @@ proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Ent
     gclient.physic.space.removeShape(compPlayer.shape)
     gclient.physic.space.removeBody(compPlayer.body)
     gclient.physic.space.removeConstraint(compPlayer.controlJoint)
-    # gclient.physic.space.removeBody(compPlayer.controlBody) # static body must not be removed
-    # gclient.reg.destroyEntity(entity) # TODO double destroy?
-    # gclient.players.del(playerId)
     gclient.players.del(compPlayer.id) # TODO check if the same
   gclient.reg.addComponentDestructor(CompPlayer, compPlayerDestructor)
 
@@ -202,21 +183,25 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
   let widthPixel = (map.width * map.tilewidth).float
   let heightPixel = (map.height * map.tileheight).float
   compTilemap.mapBoundaryBody = addBody(gclient.physic.space, newStaticBody())
-  compTilemap.mapBoundarieShapes[0] = gclient.physic.space.addShape(
-    newSegmentShape(compTilemap.mapBoundaryBody, v(0.0, 0.0), v(widthPixel, 0.0), 2)
-  )
-  compTilemap.mapBoundarieShapes[1] = gclient.physic.space.addShape(
-    newSegmentShape(compTilemap.mapBoundaryBody, v(widthPixel, 0.0), v(widthPixel, heightPixel), 2)
-  )
-  compTilemap.mapBoundarieShapes[2] = gclient.physic.space.addShape(
-    newSegmentShape(compTilemap.mapBoundaryBody, v(widthPixel, heightPixel), v(0.0, heightPixel), 2)
-  )
-  compTilemap.mapBoundarieShapes[3] = gclient.physic.space.addShape(
-    newSegmentShape(compTilemap.mapBoundaryBody, v(0.0, heightPixel), v(0.0, 0.0), 2)
-  )
+  # TODO these "draw rect frames" will come up more often in this project: make a generic iterator for this
+  for (idx, line) in enumerate gen4Lines[Vect](x = 0.0, y = 0.0, width = widthPixel, height = heightPixel):
+    compTilemap.mapBoundarieShapes[idx] = gclient.physic.space.addShape(
+      newSegmentShape(compTilemap.mapBoundaryBody, line.aa, line.bb, 2)
+    )
+  # compTilemap.mapBoundarieShapes[0] = gclient.physic.space.addShape(
+  #   newSegmentShape(compTilemap.mapBoundaryBody, v(0.0, 0.0), v(widthPixel, 0.0), 2)
+  # )
+  # compTilemap.mapBoundarieShapes[1] = gclient.physic.space.addShape(
+  #   newSegmentShape(compTilemap.mapBoundaryBody, v(widthPixel, 0.0), v(widthPixel, heightPixel), 2)
+  # )
+  # compTilemap.mapBoundarieShapes[2] = gclient.physic.space.addShape(
+  #   newSegmentShape(compTilemap.mapBoundaryBody, v(widthPixel, heightPixel), v(0.0, heightPixel), 2)
+  # )
+  # compTilemap.mapBoundarieShapes[3] = gclient.physic.space.addShape(
+  #   newSegmentShape(compTilemap.mapBoundaryBody, v(0.0, heightPixel), v(0.0, 0.0), 2)
+  # )
 
-
-  ## Todo this is just copied from the systemDraw
+  ## TODO this is mostly copied from the systemDraw, deduplicate code
   let tileset = map.tilesets()[0]
   let texture = gclient.assets.textures[tileset.imagePath()]
   for layer in map.layers:
@@ -257,16 +242,7 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
 
   echo "Creating layer shpaes"
   for objectGroup in map.objectGroups:
-    # nim_tiled cannot show which TiledObject we have
-    # but we know that these are polygons
-    # void DrawLineStrip(Vector2 *points, int pointsCount, Color color);   // Draw lines sequence
-    # print objectGroup
-
-    # let color =
-    #   case objectGroup.name
-    #   of "Exit": Red
-    #   of "Next": Green
-    #   else: Black
+    print "create objects for object group:", objectGroup.name
     for obj in objectGroup.objects:
       if obj of TiledPolygon:
         # TODO convex shapes does not work yet.
@@ -280,11 +256,8 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
         compTilemap.objCollisionShapes[obj.id] = addShape(gclient.physic.space,
           newPolyShape(compTilemap.objCollisionBodies[obj.id], poly.points.len , addr vecs[0], 1)
         )
-
-        # proc newPolyShape*(body: Body; count: cint; verts: ptr Vect; radius: Float): PolyShape {.cdecl, importc: "cpPolyShapeNewRaw".}
-
-
-      else: # Rectangle
+      else:
+        # Rectangle
         print obj.id
         compTilemap.objCollisionBodies[obj.id] = addBody(gclient.physic.space, newStaticBody())
         compTilemap.objCollisionBodies[obj.id].position = v(obj.x + (obj.width / 2), obj.y + (obj.height / 2))
