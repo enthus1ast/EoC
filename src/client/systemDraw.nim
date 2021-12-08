@@ -67,7 +67,7 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
                 elif collisionShape of TiledTileCollisionShapesPolygon:
                   # print TiledTileCollisionShapesPolygon
                   let poly = TiledTileCollisionShapesPolygon(collisionShape)
-                  var points = poly.points.toVecs( Vector2(x: destPos.x, y: destPos.y) )
+                  var points = poly.points.toVecs( Vector2(x: destPos.x + map.tilewidth.float, y: destPos.y + map.tileheight.float) )
                   # last to first is missing add it here
                   points.add points[0]
                   drawLineStrip(addr points[0], points.len, Yellow)

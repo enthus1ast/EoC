@@ -238,7 +238,10 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
                 if not compTilemap.tileCollisionShapes.hasKey(index):
                   compTilemap.tileCollisionShapes[index] = @[]
                 let poly = TiledTileCollisionShapesPolygon(collisionShape)
-                var vecs = poly.points.toVecsChipmunks((0.0, 0.0))
+
+                # TODO the polygon tile position is (still) not correct
+                # var vecs = poly.points.toVecsChipmunks(Vector2(x: destPos.x - (map.tilewidth.float * 1.5), y: destPos.y - (map.tileheight.float * 1.5) ))
+                var vecs = poly.points.toVecsChipmunks(Vector2(x: destPos.x - (map.tilewidth.float / 2) , y: destPos.y - (map.tileheight / 2)  ))
                 var shape = addShape(gclient.physic.space,
                   # newBoxShape(compTilemap.tileCollisionBodies[index], rect.width, rect.height, radius = 1)
                   newPolyShape(compTilemap.tileCollisionBodies[index], poly.points.len , addr vecs[0], 1)

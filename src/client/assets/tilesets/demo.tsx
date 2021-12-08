@@ -47,8 +47,8 @@
  </tile>
  <tile id="160">
   <objectgroup draworder="index" id="2">
-   <object id="1" x="0" y="32">
-    <polygon points="0,0 32,-32 0,-32"/>
+   <object id="2" x="0" y="0">
+    <polygon points="0,0 32,0 0,32"/>
    </object>
   </objectgroup>
  </tile>
@@ -59,8 +59,8 @@
  </tile>
  <tile id="162">
   <objectgroup draworder="index" id="2">
-   <object id="1" x="0" y="3">
-    <polygon points="0,-3 32,29 32,-3"/>
+   <object id="3" x="32" y="32">
+    <polygon points="0,0 0,-32 -32,-32"/>
    </object>
   </objectgroup>
  </tile>
