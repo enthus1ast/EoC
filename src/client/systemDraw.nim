@@ -63,7 +63,7 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
                   drawRectangleLines(rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow)
                 elif collisionShape of TiledTileCollisionShapesPoint:
                   discard
-                  print "not support"
+                  print "TiledTileCollisionShapesPoint: not support"
                 elif collisionShape of TiledTileCollisionShapesPolygon:
                   # print TiledTileCollisionShapesPolygon
                   let poly = TiledTileCollisionShapesPolygon(collisionShape)
@@ -122,7 +122,6 @@ proc systemDraw*(gclient: GClient) =
     # here we render the prebuild worldmap
     # all the locations
     # tents etc.
-    discard
     clearBackground(White)
     let wmp = getMousePosition()
     let mapSize = 512

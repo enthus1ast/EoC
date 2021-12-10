@@ -1,4 +1,4 @@
-import netty
+# import netty
 import print
 import os
 import ../shared
@@ -8,23 +8,14 @@ import nimraylib_now/mangled/raylib # Vector2
 import nimraylib_now/mangled/raymath # Vector2
 import std/monotimes
 import std/times
-import std/parsecfg
+# import std/parsecfg
 import std/strutils
 import std/random
 import asyncdispatch
+import typesServer
 
 const SERVER_VERSION = 2
 
-type
-  Player = object
-    id: Id
-    connection: Connection
-    pos: Vector2
-  GServer = ref object
-    players: Table[Id, Player]
-    server: Reactor
-    config: Config
-    targetServerFps: uint8
 
 var gserver = GServer()
 gserver.players = initTable[Id, Player]()
@@ -51,6 +42,7 @@ proc genServerInfo(gserver: GServer): GResServerInfo =
     targetServerFps: gserver.targetServerFps,
     serverVersion: SERVER_VERSION
   )
+
 
 proc main(gserver: GServer, delta: float) =
   # sleep(250)
