@@ -1,6 +1,6 @@
 import math
 import nimraylib_now
-import ../shared
+import ../shared/shared
 import json
 import tables
 import print
@@ -11,7 +11,7 @@ import std/enumerate
 import asyncdispatch
 import chatbox
 import netty, os, flatty
-import typesAssetLoader
+import ../shared/typesAssetLoader
 import ecs
 import typesSystemPhysic
 import nim_tiled
@@ -78,12 +78,12 @@ type
   CompTilemap* = ref object of Component
     tiles*: Table[Vector2, Entity]
     objects*: seq[Entity] # TODO better change to table? (with object id as key?)
-    tileCollisionBodies*: Table[int, chipmunk7.Body]
-    tileCollisionShapes*: Table[int, seq[chipmunk7.Shape]] ## one tile can have multiple shapes
+    tileCollisionBodies*: Table[int, chipmunk7.Body] # TODO remove
+    tileCollisionShapes*: Table[int, seq[chipmunk7.Shape]] # TODO remove one tile can have multiple shapes
     mapBoundaryBody*: chipmunk7.Body
     mapBoundarieShapes*: array[4, chipmunk7.Shape]
-    objCollisionBodies*: Table[int, chipmunk7.Body]
-    objCollisionShapes*: Table[int, chipmunk7.Shape]
+    objCollisionBodies*: Table[int, chipmunk7.Body] # TODO remove
+    objCollisionShapes*: Table[int, chipmunk7.Shape] # TODO remove
 
   CompTile* = ref object of Component
     xtile*, ytile*: int
@@ -300,7 +300,7 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
         # compTilemap.objCollisionBodies[obj.id].position = v(obj.x, obj.y) # TODO Remove
         # var vecs = poly.points.toVecsChipmunks((obj.x, obj.y))
         var vecs = poly.points.toVecsChipmunks((0.0, 0.0))
-        compTilemapObject.shape =  addShape(gclient.physic.space,
+        compTilemapObject.shape = addShape(gclient.physic.space,
           newPolyShape(compTilemapObject.body, poly.points.len , addr vecs[0], 1)
         )
         compTilemap.objCollisionShapes[obj.id] = compTilemapObject.shape # TODO Remove
@@ -330,21 +330,8 @@ proc newMap*(gclient: GClient, mapKey: string): Entity =
     for entTile in compTilemap.tiles.values:
       gclient.reg.invalidateEntity(entTile)
 
-    ## TODO these are now their own entities
-    ## TODO the destructor of the tilemap should also remove all its tile entities
-    ## TODO then the tile entities destructor should cleanup all the shapes and bodies
-    ## Remove obj collision
-    # for objCollisionShape in compTilemap.objCollisionShapes.values:
-    #   gclient.physic.space.removeShape(objCollisionShape)
-    # for objCollisionBody in compTilemap.objCollisionBodies.values:
-    #   gclient.physic.space.removeBody(objCollisionBody)
-
-    # ## Remove tile collision
-    # for tileCollisionShapes in compTilemap.tileCollisionShapes.values:
-    #   for tileCollisionShape in tileCollisionShapes:
-    #     gclient.physic.space.removeShape(tileCollisionShape)
-    # for tileCollisionBody in compTilemap.tileCollisionBodies.values:
-    #   gclient.physic.space.removeBody(tileCollisionBody)
+    for entTile in compTilemap.tiles.values:
+      gclient.reg.invalidateEntity(entTile)
 
   # Register in the ecs
   gclient.reg.addComponentDestructor(CompTilemap, compTilemapDestructor)

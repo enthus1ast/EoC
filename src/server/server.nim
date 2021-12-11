@@ -1,11 +1,13 @@
 # import netty
 import print
 import os
-import ../shared
+import ../shared/shared
 import flatty
 import tables
-import nimraylib_now/mangled/raylib # Vector2
-import nimraylib_now/mangled/raymath # Vector2
+import nimraylib_now # /mangled/raymath # Vector2
+
+# import nimraylib_now/mangled/raymath # Vector2
+# import nimraylib_now/mangled/raylib  # Vector2
 import std/monotimes
 import std/times
 # import std/parsecfg
@@ -13,8 +15,14 @@ import std/strutils
 import std/random
 import asyncdispatch
 import typesServer
+import std/locks
+
+# import systemPhysic
 
 const SERVER_VERSION = 2
+
+var threadPhysic: Thread[int]
+
 
 
 var gserver = GServer()
@@ -25,6 +33,7 @@ echo "Listenting for UDP on 127.0.0.1:1999"
 
 func configure(gserver: GServer) =
   gserver.targetServerFps = gserver.config.getSectionValue("net", "targetServerFps").parseInt().uint8
+  gserver.targetServerPhysicFps = gserver.config.getSectionValue("net", "targetServerPhysicFps").parseInt().uint8
 
 proc dumpConnectedPlayers(gserver: GServer) =
   echo "Connected players: ", gserver.players.len
@@ -44,12 +53,42 @@ proc genServerInfo(gserver: GServer): GResServerInfo =
   )
 
 
+
+proc systemPhysic*(gserver: GServer, delta: float) =
+  echo "physic tik"
+
+# proc threadSystemPhysic*(gserver: GServer) {.thread.} =
+proc threadSystemPhysic*(foo: int) {.thread.} =
+  while true:
+    echo "tick"
+    sleep(foo)
+  # let tar = calculateFrameTime(gserver.targetServerPhysicFps)
+  # var delta = 0.1
+  # while true:
+  #   let startt = getMonoTime()
+  #   gserver.systemPhysic(delta)
+  #   # print "tick"
+  #   let endt = getMonoTime()
+  #   let took = (endt - startt).inMilliseconds
+  #   # delta = took
+  #   let sleepTime = (tar - took).clamp(0, 50_000)
+  #   # print(took, sleeptime, took + sleepTime)
+  #   sleep(sleepTime.int)
+
+
 proc main(gserver: GServer, delta: float) =
   # sleep(250)
   # sleep(10)
   # must call tick to both read and write
   # usually there are no new messages, but if there are
   # echo "tick"
+
+  # createThread(gserver.threadPhysic, threadSystemPhysic, gserver)
+  # createThread(threadPhysic, threadSystemPhysic, gserver)
+  createThread(threadPhysic, threadSystemPhysic, 10)
+
+  # threadSystemPhysic
+
   gserver.server.tick()
   for connection in gserver.server.newConnections:
     echo "[new] ", connection.address

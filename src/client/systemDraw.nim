@@ -2,8 +2,8 @@ import typesClient
 import nimraylib_now
 
 import netlib
-import assetLoader
-import typesAssetLoader
+import ../shared/assetLoader
+import ../shared/typesAssetLoader
 import nim_tiled
 import std/intsets
 import chipmunk7
@@ -38,6 +38,7 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
   ## Draw tilemap could be optimized by generating the tilemap once,
   ## Store it, then draw the whole tilemap in one draw call.
   # TODO only draw the tiles that are visible
+  # TODO drawTilemap should operate on the entities
   let tileset = map.tilesets()[0]
   let texture = gclient.assets.textures[tileset.imagePath()]
   for layer in map.layers:
@@ -176,17 +177,12 @@ proc systemDraw*(gclient: GClient) =
           drawCircle(interpolated.x.int, interpolated.y.int, 5, RED)
         except:
           echo getCurrentExceptionMsg()
-      # print dif
 
     ##DEBUG
     # let texture = gclient.assets.textures["assets\\img\\tilesets\\demo.png"] # todo get this from the map
     # drawTextureRec(texture, Rectangle(x: 0.float, y: 0.float, width: 50.float, height: 50.float), (10.float, 10.float), White)
-
     # Draw the tilemap
-
     endMode2D()
-
-
 
     # drawText("FRAME SPEED: ", 165, 210, 10, Darkgray)
     drawText("Entities: " & $gclient.reg.validEntities.len() , 0, getScreenHeight() - 20, 10, Darkgray)

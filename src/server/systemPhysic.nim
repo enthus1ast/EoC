@@ -8,9 +8,24 @@
 
   For the demo we will only simulate one map.
 ]##
-
+import std/locks
+import std/[os, times, monotimes]
 import typesServer
+import ../shared/shared
+# import
 
 
-proc systemPhysic(gserver: GServer, delta: float) =
-  discard
+proc systemPhysic*(gserver: GServer, delta: float) =
+  echo "physic tik"
+
+proc threadSystemPhysic*(gserver: GServer) {.thread.} =
+  let tar = calculateFrameTime(gserver.targetServerPhysicFps)
+  var delta = 0.1
+  while true:
+    # let startt = getMonoTime()
+    gserver.systemPhysic(delta)
+    # let endt = getMonoTime()
+    # let took = (endt - startt).inMilliseconds
+    # let sleepTime = (tar - took).clamp(0, 50_000)
+    # sleep(sleepTime.int)
+

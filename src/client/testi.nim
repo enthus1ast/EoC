@@ -2,7 +2,7 @@
 import typesClient
 import systemDraw
 import netlib
-import assetLoader
+import ../shared/assetLoader
 import nimraylib_now
 
 import systemPhysic
@@ -75,13 +75,7 @@ copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.le
 #   if player.id == gclient.myPlayerId:
 
 
-converter toChipmunksVector(vec: Vector2): Vect {.inline.} =
-  result.x = vec.x
-  result.y = vec.y
 
-converter toRaylibVector(vec: Vect): Vector2 {.inline.} =
-  result.x = vec.x
-  result.y = vec.y
 
 proc mainLoop(gclient: GClient) =
   initPhysics()

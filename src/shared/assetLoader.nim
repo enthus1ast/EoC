@@ -1,5 +1,5 @@
 import typesAssetLoader
-import typesClient
+import tables, os, print
 
 import nimraylib_now
 import nim_tiled

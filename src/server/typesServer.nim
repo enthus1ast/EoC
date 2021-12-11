@@ -16,7 +16,10 @@ export parsecfg
 import ecs
 export ecs
 
-import ../shared
+import ../shared/typesAssetLoader
+export typesAssetLoader
+
+import ../shared/shared
 
 type
   Player* = object
@@ -28,4 +31,7 @@ type
     server*: Reactor
     config*: Config
     targetServerFps*: uint8
+    targetServerPhysicFps*: uint8
+    assets*: AssetLoader
     reg*: Registry
+    # threadPhysic*: Thread[GServer] # codegen bug
