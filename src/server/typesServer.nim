@@ -16,6 +16,9 @@ export parsecfg
 import ecs
 export ecs
 
+import chipmunk7
+export chipmunk7
+
 import ../shared/typesAssetLoader
 export typesAssetLoader
 
@@ -26,6 +29,8 @@ type
     id*: Id
     connection*: Connection
     pos*: Vector2
+  CompMap* = ref object of Component
+    space*: chipmunk7.Space
   GServer* = ref object
     players*: Table[Id, Player]
     server*: Reactor
@@ -34,4 +39,5 @@ type
     targetServerPhysicFps*: uint8
     assets*: AssetLoader
     reg*: Registry
+
     # threadPhysic*: Thread[GServer] # codegen bug

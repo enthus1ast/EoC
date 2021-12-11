@@ -1,13 +1,10 @@
-# import netty
 import print
 import os
-import ../shared/shared
 import flatty
 import tables
-import nimraylib_now # /mangled/raymath # Vector2
-
-# import nimraylib_now/mangled/raymath # Vector2
-# import nimraylib_now/mangled/raylib  # Vector2
+#import nimraylib_now # /mangled/raymath # Vector2
+import nimraylib_now/mangled/raymath # Vector2
+import nimraylib_now/mangled/raylib  # Vector2
 import std/monotimes
 import std/times
 # import std/parsecfg
@@ -16,12 +13,12 @@ import std/random
 import asyncdispatch
 import typesServer
 import std/locks
-
-# import systemPhysic
+import ../shared/shared
+import systemPhysic
 
 const SERVER_VERSION = 2
 
-var threadPhysic: Thread[int]
+# var threadPhysic: Thread[int]
 
 
 
@@ -29,6 +26,7 @@ var gserver = GServer()
 gserver.players = initTable[Id, Player]()
 gserver.server = newReactor("127.0.0.1", 1999)
 gserver.config = loadConfig(getAppDir() / "serverConfig.ini")
+gserver.reg = newRegistry()
 echo "Listenting for UDP on 127.0.0.1:1999"
 
 func configure(gserver: GServer) =
@@ -54,26 +52,26 @@ proc genServerInfo(gserver: GServer): GResServerInfo =
 
 
 
-proc systemPhysic*(gserver: GServer, delta: float) =
-  echo "physic tik"
+# proc systemPhysic*(gserver: GServer, delta: float) =
+#   echo "physic tik"
 
-# proc threadSystemPhysic*(gserver: GServer) {.thread.} =
-proc threadSystemPhysic*(foo: int) {.thread.} =
-  while true:
-    echo "tick"
-    sleep(foo)
-  # let tar = calculateFrameTime(gserver.targetServerPhysicFps)
-  # var delta = 0.1
-  # while true:
-  #   let startt = getMonoTime()
-  #   gserver.systemPhysic(delta)
-  #   # print "tick"
-  #   let endt = getMonoTime()
-  #   let took = (endt - startt).inMilliseconds
-  #   # delta = took
-  #   let sleepTime = (tar - took).clamp(0, 50_000)
-  #   # print(took, sleeptime, took + sleepTime)
-  #   sleep(sleepTime.int)
+# # proc threadSystemPhysic*(gserver: GServer) {.thread.} =
+# proc threadSystemPhysic*(foo: int) {.thread.} =
+#   while true:
+#     echo "tick"
+#     sleep(foo)
+#   # let tar = calculateFrameTime(gserver.targetServerPhysicFps)
+#   # var delta = 0.1
+#   # while true:
+#   #   let startt = getMonoTime()
+#   #   gserver.systemPhysic(delta)
+#   #   # print "tick"
+#   #   let endt = getMonoTime()
+#   #   let took = (endt - startt).inMilliseconds
+#   #   # delta = took
+#   #   let sleepTime = (tar - took).clamp(0, 50_000)
+#   #   # print(took, sleeptime, took + sleepTime)
+#   #   sleep(sleepTime.int)
 
 
 proc main(gserver: GServer, delta: float) =
@@ -85,9 +83,10 @@ proc main(gserver: GServer, delta: float) =
 
   # createThread(gserver.threadPhysic, threadSystemPhysic, gserver)
   # createThread(threadPhysic, threadSystemPhysic, gserver)
-  createThread(threadPhysic, threadSystemPhysic, 10)
+  # createThread(threadPhysic, threadSystemPhysic, 10) # TODO does not work because of raylib bug
 
   # threadSystemPhysic
+  gserver.systemPhysic(0.1) # TODO as thread with real delta
 
   gserver.server.tick()
   for connection in gserver.server.newConnections:
@@ -199,6 +198,17 @@ proc mainLoop(gserver: GServer) =
     # print(took, sleeptime, took + sleepTime)
     sleep(sleepTime.int)
 
+
+# TODO dummy
+let entMap = gserver.reg.newEntity()
+var compMap = CompMap()
+compMap.space = newSpace()
+gserver.reg.addComponent(entMap, compMap)
+
+let entMap2 = gserver.reg.newEntity()
+var compMap2 = CompMap()
+compMap2.space = newSpace()
+gserver.reg.addComponent(entMap2, compMap2)
 
 gserver.configure()
 gserver.mainLoop()
