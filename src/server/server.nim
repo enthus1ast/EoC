@@ -195,11 +195,11 @@ proc mainLoop(gserver: GServer) =
     let took = (endt - startt).inMilliseconds
     # delta = took
     let sleepTime = (tar - took).clamp(0, 50_000)
-    # print(took, sleeptime, took + sleepTime)
+    print(took, sleeptime, took + sleepTime)
     sleep(sleepTime.int)
 
 
-# TODO dummy
+# TODO dummy map loading in the server
 let entMap = gserver.reg.newEntity()
 var compMap = CompMap()
 compMap.space = newSpace()
@@ -209,6 +209,13 @@ let entMap2 = gserver.reg.newEntity()
 var compMap2 = CompMap()
 compMap2.space = newSpace()
 gserver.reg.addComponent(entMap2, compMap2)
+
+for idx in 0..100:
+  let entMapN = gserver.reg.newEntity()
+  var compMapN = CompMap()
+  compMapN.space = newSpace()
+  gserver.reg.addComponent(entMapN, compMapN)
+
 
 gserver.configure()
 gserver.mainLoop()

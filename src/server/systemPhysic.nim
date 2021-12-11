@@ -20,7 +20,7 @@ import print
 proc systemPhysic*(gserver: GServer, delta: float) =
   echo "physic tik"
   for entMap in gserver.reg.entities(CompMap):
-    echo entMap
+    # echo entMap
     var compMap = gserver.reg.getComponent(entMap, CompMap)
     compMap.space.step(delta)
 
