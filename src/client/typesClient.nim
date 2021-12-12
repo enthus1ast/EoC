@@ -33,18 +33,22 @@ export netty, os, flatty
 export typesAssetLoader
 export ecs
 
+import ../shared/cPlayer
+export cPlayer
+
 type
-  CompPlayer* = ref object of Component # is player == crit (critter)?
-    id*: Id
-    oldpos*: Vector2 # we tween from oldpos
-    pos*: Vector2    # to newpos in a "server tick time step"
-    lastmove*: MonoTime #
-    body*: chipmunk7.Body
-    shape*: chipmunk7.Shape # the players main collision shape
-    dummyBody*: chipmunk7.Body
-    dummyJoint*: chipmunk7.Constraint
-    controlBody*: chipmunk7.Body
-    controlJoint*: chipmunk7.Constraint
+  # CompPlayer* = ref object of Component # is player == crit (critter)?
+  #   id*: Id
+  #   oldpos*: Vector2 # we tween from oldpos
+  #   pos*: Vector2    # to newpos in a "server tick time step"
+  #   lastmove*: MonoTime #
+  #   body*: chipmunk7.Body
+  #   shape*: chipmunk7.Shape # the players main collision shape
+  #   dummyBody*: chipmunk7.Body
+  #   dummyJoint*: chipmunk7.Constraint
+  #   angularJoint*: chipmunk7.Constraint
+  #   controlBody*: chipmunk7.Body
+  #   controlJoint*: chipmunk7.Constraint
 
   CompName* = ref object of Component
     name*: string
@@ -173,12 +177,29 @@ proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Ent
   ## We create a "control" body, this body we move around
   ## on keypresses
   compPlayer.controlBody = newKinematicBody()
+
+  ## Linear joint
   compPlayer.controlJoint = addConstraint(gclient.physic.space,
     newPivotJoint(compPlayer.controlBody, compPlayer.body, vzero, vzero)
   )
   compPlayer.controlJoint.maxBias = 0 # disable joint correction
   compPlayer.controlJoint.errorBias = 0 # attempt to fully correct the joint each step
   compPlayer.controlJoint.maxForce = 1000.0 # emulate linear friction
+
+  ## Angular joint (player bodies never rotate)
+  # cpConstraint *gear = cpSpaceAddConstraint(space, cpGearJointNew(tankControlBody, tankBody, 0.0f, 1.0f));
+  # cpConstraintSetErrorBias(gear, 0); // attempt to fully correct the joint each step
+  # cpConstraintSetMaxBias(gear, 1.2f);  // but limit it's angular correction rate
+  # cpConstraintSetMaxForce(gear, 50000.0f); // emulate angular friction
+  compPlayer.angularJoint = addConstraint(gclient.physic.space,
+    newGearJoint(compPlayer.controlBody, compPlayer.body, 0.0, 1.0)
+  )
+  # compPlayer.angularJoint.maxBias = float.high
+  # compPlayer.angularJoint.errorBias = 0
+  # compPlayer.angularJoint.maxForce = float.high
+  compPlayer.angularJoint.maxBias = 2147483647 # TODO is this correct?
+  compPlayer.angularJoint.errorBias = 0
+  compPlayer.angularJoint.maxForce = 2147483647 # TODO is this correct?
 
   gclient.reg.addComponent(result, compPlayer)
   gclient.reg.addComponent(result, CompName(name: name))

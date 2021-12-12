@@ -16,18 +16,21 @@ import std/locks
 import ../shared/shared
 import systemPhysic
 
-const SERVER_VERSION = 2
+import ../shared/cPlayer
 
+const SERVER_VERSION = 2
+const DEMO_MAP_POS = Vector2(x: 0, y: 0)
 # var threadPhysic: Thread[int]
 
-
-
 var gserver = GServer()
-gserver.players = initTable[Id, Player]()
+gserver.players = initTable[Id, CompPlayerServer]()
 gserver.server = newReactor("127.0.0.1", 1999)
 gserver.config = loadConfig(getAppDir() / "serverConfig.ini")
 gserver.reg = newRegistry()
 echo "Listenting for UDP on 127.0.0.1:1999"
+
+# TODO this is just a demo map
+# var entMap =
 
 func configure(gserver: GServer) =
   gserver.targetServerFps = gserver.config.getSectionValue("net", "targetServerFps").parseInt().uint8
@@ -50,7 +53,58 @@ proc genServerInfo(gserver: GServer): GResServerInfo =
     serverVersion: SERVER_VERSION
   )
 
+proc newPlayer(gserver: GServer, entMap: Entity, playerId: Id, pos: Vector2, name: string): Entity =
+  discard
+  # TODO this is mostly duplicated code from typesClient newPlayer
+  # find a way to deduplicate
+  result = gserver.reg.newEntity()
+  var compPlayer: CompPlayer # = new(CompPlayer)
+  compPlayer = CompPlayer()
+  compPlayer.id = playerId # the network id from netty
+  compPlayer.pos = pos
+  compPlayer.oldpos = pos # on create set both equal
+  compPlayer.lastmove = getMonoTime()
+  let radius = 5.0 # TODO these must be configured globally
+  let mass = 1.0 # TODO these must be configured globally
 
+  var compMap = gserver.reg.getComponent(entMap, CompMap)
+  compPlayer.body = addBody(compMap.space, newBody(mass, float.high))
+  compPlayer.body.position = v(pos.x, pos.y)
+  compPlayer.shape = addShape(compMap.space, newCircleShape(compPlayer.body, radius, vzero))
+  compPlayer.shape.friction = 0.1 # TODO these must be configured globally
+
+  ## We create a "control" body, this body we move around
+  ## on keypresses
+  compPlayer.controlBody = newKinematicBody()
+
+  ## Linear joint
+  compPlayer.controlJoint = addConstraint(compMap.space,
+    newPivotJoint(compPlayer.controlBody, compPlayer.body, vzero, vzero)
+  )
+  compPlayer.controlJoint.maxBias = 0 # disable joint correction
+  compPlayer.controlJoint.errorBias = 0 # attempt to fully correct the joint each step
+  compPlayer.controlJoint.maxForce = 1000.0 # emulate linear friction
+
+  compPlayer.angularJoint = addConstraint(compMap.space,
+    newGearJoint(compPlayer.controlBody, compPlayer.body, 0.0, 1.0)
+  )
+  compPlayer.angularJoint.maxBias = 2147483647 # TODO is this correct?
+  compPlayer.angularJoint.errorBias = 0
+  compPlayer.angularJoint.maxForce = 2147483647 # TODO is this correct?
+
+  gserver.reg.addComponent(result, compPlayer)
+  # gserver.reg.addComponent(result, CompName(name: name)) # TODO add player name
+
+  ## Register destructor
+  proc compPlayerDestructor(reg: Registry, entity: Entity, comp: Component) {.closure.} =
+    print "in implicit internal destructor: " #, CompPlayer(comp)
+    # TODO should the destructor tell other network players?
+    var compPlayer = CompPlayer(comp) #gclient.reg.getComponent(entity, CompPlayer)
+    compMap.space.removeShape(compPlayer.shape)
+    compMap.space.removeBody(compPlayer.body)
+    compMap.space.removeConstraint(compPlayer.controlJoint)
+    # gclient.players.del(compPlayer.id) # TODO remove from server reg
+  gserver.reg.addComponentDestructor(CompPlayer, compPlayerDestructor)
 
 # proc systemPhysic*(gserver: GServer, delta: float) =
 #   echo "physic tik"
@@ -92,7 +146,7 @@ proc main(gserver: GServer, delta: float) =
   for connection in gserver.server.newConnections:
     echo "[new] ", connection.address
 
-    var player = Player()
+    var player = CompPlayerServer()
     player.id = connection.id
     player.connection = connection
     player.pos = Vector2(x: (rand(50) + 20).float, y: (rand(50) + 20).float) # TODO
@@ -195,26 +249,27 @@ proc mainLoop(gserver: GServer) =
     let took = (endt - startt).inMilliseconds
     # delta = took
     let sleepTime = (tar - took).clamp(0, 50_000)
-    print(took, sleeptime, took + sleepTime)
+    # print(took, sleeptime, took + sleepTime)
     sleep(sleepTime.int)
 
 
 # TODO dummy map loading in the server
 let entMap = gserver.reg.newEntity()
+gserver.maps[DEMO_MAP_POS] = entMap # Demo map is at 0,0
 var compMap = CompMap()
 compMap.space = newSpace()
 gserver.reg.addComponent(entMap, compMap)
 
-let entMap2 = gserver.reg.newEntity()
-var compMap2 = CompMap()
-compMap2.space = newSpace()
-gserver.reg.addComponent(entMap2, compMap2)
+# let entMap2 = gserver.reg.newEntity()
+# var compMap2 = CompMap()
+# compMap2.space = newSpace()
+# gserver.reg.addComponent(entMap2, compMap2)
 
-for idx in 0..100:
-  let entMapN = gserver.reg.newEntity()
-  var compMapN = CompMap()
-  compMapN.space = newSpace()
-  gserver.reg.addComponent(entMapN, compMapN)
+# for idx in 0..100:
+#   let entMapN = gserver.reg.newEntity()
+#   var compMapN = CompMap()
+#   compMapN.space = newSpace()
+#   gserver.reg.addComponent(entMapN, compMapN)
 
 
 gserver.configure()

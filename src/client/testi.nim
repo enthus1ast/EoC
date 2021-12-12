@@ -45,37 +45,17 @@ gclient.reg = newRegistry()
 gclient.physic = newSystemPhysic()
 ## Loading sprites must be done after window initialization
 
-
-
-## Some components
-# type
-#   CompPlayer = ref object of Component
-#     playerId: Id
-#     name: string
-
-
-
-
 # Main Menu
 ## TODO THIS IS STUPID
 gclient.txtServer = cast[cstring](alloc(512)) #newString(1024)
 var txtServerDefault = "127.0.0.1"
 copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.len)
 
-
-# gclient.circle = createPhysicsBodyCircle((screenWidth.float/2.0, screenHeight.float/2.0), 45.0, 10.0)
-
 # proc recv[T](gclient: GClient): T =
 #   discard
 
 # proc send[T](gclient: GClient, obj: T) =
 #   discard
-
-# proc drawPlayer(gclient: GClient, player: Player) =
-#   if player.id == gclient.myPlayerId:
-
-
-
 
 proc mainLoop(gclient: GClient) =
   initPhysics()
@@ -161,8 +141,6 @@ proc mainLoop(gclient: GClient) =
           compPlayer.oldpos = compPlayer.pos
           compPlayer.pos = res.pos # TODO
           compPlayer.lastmove = getMonoTime()
-
-
       else:
         discard
 

@@ -18,7 +18,7 @@ import print
 
 
 proc systemPhysic*(gserver: GServer, delta: float) =
-  echo "physic tik"
+  # echo "physic tik"
   for entMap in gserver.reg.entities(CompMap):
     # echo entMap
     var compMap = gserver.reg.getComponent(entMap, CompMap)
