@@ -19,7 +19,7 @@ requires "supersnappy" # compression library
 # requires "print" # better echo
 requires "https://github.com/treeform/print.git"
 # requires "https://github.com/avahe-kellenberger/nim-chipmunk.git" # 2d Physic engine
-requires "https://github.com/enthus1ast/nim-chipmunk.git@#7.0.4"
+requires "https://github.com/enthus1ast/nim-chipmunk.git#7.0.4"
 # requires "chipmunk7" # 2d Physic engine
 
 # requires "https://github.com/SkyVault/nim-tiled.git" # Tiled loader
