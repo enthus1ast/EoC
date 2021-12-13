@@ -11,7 +11,7 @@ srcDir        = "src"
 
 requires "nim >= 1.6.0"
 requires "noisy" # perlin noise generator, map generation etc
-requires "netty@#head" # udp networking library
+requires "https://github.com/treeform/netty.git@483bb7321469f098b4c360c3aa6c277c34b2d878" # udp networking library
 requires "nimscripter" # scripting library
 requires "nimraylib_now" # raylib bindings render / multimedia library
 requires "flatty" # binary serialisation library
