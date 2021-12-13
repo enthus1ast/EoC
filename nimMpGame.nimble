@@ -18,7 +18,9 @@ requires "flatty" # binary serialisation library
 requires "supersnappy" # compression library
 # requires "print" # better echo
 requires "https://github.com/treeform/print.git"
-requires "https://github.com/avahe-kellenberger/nim-chipmunk.git" # 2d Physic engine
+# requires "https://github.com/avahe-kellenberger/nim-chipmunk.git" # 2d Physic engine
+requires "chipmunk7" # 2d Physic engine
+
 # requires "https://github.com/SkyVault/nim-tiled.git" # Tiled loader
 requires "https://github.com/enthus1ast/nim-tiled.git" # Tiled Loader
 requires "https://github.com/enthus1ast/ecs.git" # entity component system
