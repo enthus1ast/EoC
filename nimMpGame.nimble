@@ -32,3 +32,10 @@ task buildlinuxclient, "Build client for linux":
 
 task buildlinuxserver, "Build server for linux":
   exec "nim c -d:release --gc:arc --threads:on --passl:-s -d:lto src/server/server.nim"
+
+
+task buildwindowsclient, "Build client for windows (crosscompile)":
+  exec "nim c --os:windows --cpu:amd64 --gcc.exe:x86_64-w64-mingw32-gcc -d:release --gc:arc --threads:on --passl:-s -d:lto src/client/testi.nim"
+
+task buildwindowsserver, "Build server for windows (crosscompile)":
+  exec "nim c --os:windows --cpu:amd64 --gcc.exe:x86_64-w64-mingw32-gcc -d:release --gc:arc --threads:on --passl:-s -d:lto src/server/server.nim"
