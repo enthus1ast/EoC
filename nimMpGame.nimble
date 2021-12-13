@@ -28,7 +28,7 @@ requires "https://github.com/enthus1ast/ecs.git" # entity component system
 
 
 task buildlinuxclient, "Build client for linux":
-  exec "nim c --gc:arc src/client/testi.nim"
+  exec "nim c -d:release --gc:arc --threads:on --gc:arc src/client/testi.nim"
 
 task buildlinuxserver, "Build server for linux":
-  exec "nim c --gc:arc src/server/server.nim"
+  exec "nim c -d:release --gc:arc --threads:on src/server/server.nim"
