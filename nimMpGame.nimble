@@ -24,6 +24,8 @@ requires "https://github.com/enthus1ast/nim-tiled.git" # Tiled Loader
 requires "https://github.com/enthus1ast/ecs.git" # entity component system
 
 
-task buildlinux, "Build for linux":
+task buildlinuxclient, "Build client for linux":
   exec "nim c --gc:arc src/client/testi.nim"
+
+task buildlinuxserver, "Build server for linux":
   exec "nim c --gc:arc src/server/server.nim"
