@@ -27,15 +27,27 @@ requires "https://github.com/enthus1ast/nim-tiled.git" # Tiled Loader
 requires "https://github.com/enthus1ast/ecs.git" # entity component system
 
 
+let
+  buildClientLinux = "nim c -d:release --gc:arc --threads:on --passl:-s -d:lto src/client/testi.nim"
+  buildServerLinux = "nim c -d:release --gc:arc --threads:on --passl:-s -d:lto src/server/server.nim"
+  buildClientWindows = "nim c --os:windows --cpu:amd64 --gcc.exe:x86_64-w64-mingw32-gcc -d:release --gc:arc --threads:on --passl:-s -d:lto src/client/testi.nim"
+  buildServerWindows = "nim c --os:windows --cpu:amd64 --gcc.exe:x86_64-w64-mingw32-gcc -d:release --gc:arc --threads:on --passl:-s -d:lto src/server/server.nim"
+
 task buildlinuxclient, "Build client for linux":
-  exec "nim c -d:release --gc:arc --threads:on --passl:-s -d:lto src/client/testi.nim"
+  exec buildClientLinux
 
 task buildlinuxserver, "Build server for linux":
-  exec "nim c -d:release --gc:arc --threads:on --passl:-s -d:lto src/server/server.nim"
+  exec buildServerLinux
 
 
 task buildwindowsclient, "Build client for windows (crosscompile)":
-  exec "nim c --os:windows --cpu:amd64 --gcc.exe:x86_64-w64-mingw32-gcc -d:release --gc:arc --threads:on --passl:-s -d:lto src/client/testi.nim"
+  exec buildClientWindows
 
 task buildwindowsserver, "Build server for windows (crosscompile)":
-  exec "nim c --os:windows --cpu:amd64 --gcc.exe:x86_64-w64-mingw32-gcc -d:release --gc:arc --threads:on --passl:-s -d:lto src/server/server.nim"
+  exec buildServerWindows
+
+task buildall, "builds all"
+  exec buildClientLinux
+  exec buildServerLinux
+  exec buildClientWindows
+  exec buildServerWindows
