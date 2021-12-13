@@ -46,7 +46,7 @@ task buildwindowsclient, "Build client for windows (crosscompile)":
 task buildwindowsserver, "Build server for windows (crosscompile)":
   exec buildServerWindows
 
-task buildall, "builds all"
+task buildall, "builds all":
   exec buildClientLinux
   exec buildServerLinux
   exec buildClientWindows
