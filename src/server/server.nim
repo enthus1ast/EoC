@@ -29,6 +29,7 @@ gserver.players = initTable[Id, Entity]()
 gserver.server = newReactor("127.0.0.1", 1999)
 gserver.config = loadConfig(getAppDir() / "serverConfig.ini")
 gserver.reg = newRegistry()
+initLock(gserver.lock)
 echo "Listenting for UDP on 127.0.0.1:1999"
 
 # TODO this is just a demo map
@@ -59,7 +60,7 @@ proc genServerInfo(gserver: GServer): GResServerInfo =
   )
 
 proc newPlayer(gserver: GServer, entMap: Entity,
-    pos: Vector2, name: string, connection: netty.Connection): Entity =
+    pos: Vector2, name: string, connection: netty.Connection): Entity {.gcsafe.} =
   discard
   # TODO this is mostly duplicated code from typesClient newPlayer
   # find a way to deduplicate
@@ -113,8 +114,8 @@ proc newPlayer(gserver: GServer, entMap: Entity,
   # gserver.reg.addComponent(result, CompName(name: name)) # TODO add player name
 
   ## Register destructor
-  proc compPlayerDestructor(reg: Registry, entity: Entity, comp: Component) {.closure.} =
-    print "in implicit internal destructor: " #, CompPlayer(comp)
+  proc compPlayerDestructor(reg: Registry, entity: Entity, comp: Component) {.closure, gcsafe.} =
+    gprint "in implicit internal destructor: " #, CompPlayer(comp)
     # TODO should the destructor tell other network players?
     var compPlayer = CompPlayer(comp) #gclient.reg.getComponent(entity, CompPlayer)
     compMap.space.removeShape(compPlayer.shape)
@@ -145,7 +146,7 @@ proc newPlayer(gserver: GServer, entMap: Entity,
 #   #   sleep(sleepTime.int)
 
 
-proc main(gserver: GServer, delta: float) =
+proc main(gserver: GServer, delta: float) {.gcsafe.} =
   # sleep(250)
   # sleep(10)
   # must call tick to both read and write
@@ -157,7 +158,7 @@ proc main(gserver: GServer, delta: float) =
   # createThread(threadPhysic, threadSystemPhysic, 10) # TODO does not work because of raylib bug
 
   # threadSystemPhysic
-  gserver.systemPhysic(delta) # TODO as thread with real delta
+  # gserver.systemPhysic(delta) # TODO as thread with real delta
 
   gserver.server.tick()
   for connection in gserver.server.newConnections:
@@ -199,7 +200,7 @@ proc main(gserver: GServer, delta: float) =
     gserver.sendToAllClients(GMsg(kind: Kind_PlayerConnected, data: fgResPlayerConnected))
 
   for connection in gserver.server.deadConnections:
-    print "[dead] ", connection.address, connection.id
+    gprint "[dead] ", connection.address, connection.id
     gserver.players.del(connection.id)
     gserver.dumpConnectedPlayers()
     let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: connection.id))
@@ -216,13 +217,13 @@ proc main(gserver: GServer, delta: float) =
     of Kind_KEEPALIVE:
       discard
     of Kind_PlayerConnected:
-      print Kind_PlayerConnected
+      gprint Kind_PlayerConnected
     of Kind_PlayerDisconnects:
-      print Kind_PlayerDisconnects
+      gprint Kind_PlayerDisconnects
     of Kind_PlayerMoved:
-      # print KindGReqPlayerMoved
+      # gprint KindGReqPlayerMoved
       var req = fromFlatty(gmsg.data, GReqPlayerMoved)
-      # print req
+      # gprint req
 
       ## Test vector.
       # if abs(req.vec.x) > 1 or abs(req.vec.y) > 1:
@@ -231,7 +232,7 @@ proc main(gserver: GServer, delta: float) =
       # else:
       let entPlayer = gserver.players[msg.conn.id]
       var compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
-      # print "Move: ", req.vec
+      # gprint "Move: ", req.vec
       # compPlayer.controlBody.position = req.vec # Vect(x: req.vec.x, y: req.vec.y)
       # compPlayer.controlBody.position = req.controlBodyPos  #compPlayer.body.position + (req.moveVector * 10)
       # compPlayer.controlBody.position = compPlayer.body.position + (req.moveVector).normalize  # req.controlBodyPos  #compPlayer.body.position + (req.moveVector * 10)
@@ -241,7 +242,7 @@ proc main(gserver: GServer, delta: float) =
       # compPlayer.controlBody.
       # compPlayer.controlBody.velocity = req.moveVector #* 100
       # compPlayer.controlBody.velocity = compPlayer.controlBody.position - compPlayer.body.position
-      # print compPlayer.controlBody.velocity
+      # gprint compPlayer.controlBody.velocity
       # compPlayer.controlBody.velocity = req.velocity
       # compPlayer.controlBody.position = req.vec.y
       # .pos += req.vec
@@ -254,7 +255,7 @@ proc main(gserver: GServer, delta: float) =
       #   gserver.server.send(player.connection, toFlatty(GMsg(kind: KindGReqPlayerMoved, data: fres)))
 
     else:
-      print "UNKNOWN"
+      gprint "UNKNOWN"
 
     # echo "GOT MESSAGE: ", msg.data
     # echo message back to the client
@@ -264,36 +265,57 @@ proc main(gserver: GServer, delta: float) =
       gserver.server.disconnect(msg.conn)
     # server.disconnect(msg.conn)
   # Send position updates regardless of previous move TODO good?
-  # print "fanout"
+  # gprint "fanout"
   for id, entPlayer in gserver.players:
     let compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
-    print entPlayer, compPlayer.body.position, compPlayer.controlBody.position, compPlayer.desiredPosition
+    # gprint entPlayer, compPlayer.body.position, compPlayer.controlBody.position, compPlayer.desiredPosition
     let res = GResPlayerMoved(playerId: id, pos: compPlayer.body.position, moveId: -10)
     let fres = toFlatty(res)
     let gmsg = GMsg(kind: Kind_PlayerMoved, data: fres)
     gserver.sendToAllClients(gmsg)
 
 
-proc mainLoop(gserver: GServer) =
+proc networkSystemThread(ptrgserver: ptr GServer) {.thread.} =
+  var gserver = ptrgserver[]
   var dc = newDeltaCalculator(gserver.targetServerFps.int, timerAccuracy = -1)
   while true:
     dc.startFrame()
-    gserver.main(dc.delta)
-    echo dc.delta
+    gserver.lock.acquire()
+    {.cast(gcsafe).}:
+      gserver.main(dc.delta)
+    gserver.lock.release()
     dc.endFrame()
     dc.sleep()
 
-  # let tar = calculateFrameTime(gserver.targetServerFps)
-  # var delta = tar.float # the first frame uses artificial delta
-  # while true:
-  #   let startt = getMonoTime()
-  #   gserver.main(delta)
-  #   let endt = getMonoTime()
-  #   let took = (endt - startt).inMilliseconds
-  #   let sleepTime = (tar - took).clamp(0, 50_000)
-  #   delta = took.float + sleepTime.float
-  #   # print(took, sleeptime, took + sleepTime)
-  #   sleep(sleepTime.int)
+proc mainLoop(gserver: GServer) =
+  ## The info mainloop.
+  ## All the work is done in threads.
+  while true:
+    echo "Info"
+    var cmd = stdin.readLine()
+    case cmd
+    of "help":
+      echo "HELP!!"
+    # of "kickall":
+
+    of "players":
+      gserver.lock.acquire()
+      try:
+        let store = gserver.reg.getStore(CompPlayer)
+        echo "Players: ", store.len
+
+        for entPlayer in gserver.reg.entities(CompPlayer):
+          let compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
+          echo entPlayer, compPlayer[]
+      except:
+        echo getCurrentExceptionMsg()
+      gserver.lock.release()
+    of "lock":
+      gserver.lock.acquire()
+    of "unlock":
+      gserver.lock.release()
+
+    # sleep(1000)
 
 
 # TODO dummy map loading in the server
@@ -305,17 +327,10 @@ compMap.space = newSpace()
 compMap.space.gravity = v(0, 0)
 gserver.reg.addComponent(entMap, compMap)
 
-# let entMap2 = gserver.reg.newEntity()
-# var compMap2 = CompMap()
-# compMap2.space = newSpace()
-# gserver.reg.addComponent(entMap2, compMap2)
 
-# for idx in 0..100:
-#   let entMapN = gserver.reg.newEntity()
-#   var compMapN = CompMap()
-#   compMapN.space = newSpace()
-#   gserver.reg.addComponent(entMapN, compMapN)
 
 
 gserver.configure()
+createThread(gserver.physicThread, systemPhysicThread, addr gserver)
+createThread(gserver.networkThread, networkSystemThread, addr gserver)
 gserver.mainLoop()

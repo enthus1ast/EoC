@@ -3,6 +3,9 @@ import nimraylib_now/mangled/raylib # Vector2
 
 from chipmunk7 import Vect
 
+import print
+export print
+
 # const
 #   PLAYER_CONNECTED* = 0
 #   PLAYER_DISCONNECTED* = 1
@@ -67,3 +70,7 @@ func calculateFrameTime*(targetFps: int | uint8): int =
   ## calculates the time a frame must take
   ## when on `targetFps`
   return (1000 / targetFps.int).int
+
+template gprint*(body: varargs[untyped]) =
+  {.cast(gcsafe).}:
+    print body

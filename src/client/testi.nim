@@ -138,6 +138,13 @@ proc mainLoop(gclient: GClient) =
           compPlayer.lastmove = getMonoTime()
           # TODO test if this is good?
           compPlayer.controlBody.position = res.pos
+
+          let diff = (compPlayer.controlBody.position - compPlayer.body.position)
+          if diff.length().abs < 5:
+            compPlayer.controlBody.velocity = vzero
+          else:
+            compPlayer.controlBody.velocity = (diff.normalize() * 100) #* delta
+
       else:
         discard
 

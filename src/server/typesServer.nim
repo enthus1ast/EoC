@@ -24,6 +24,8 @@ export typesAssetLoader
 
 import ../shared/shared
 
+import std/locks
+
 type
   WorldmapPos* = Vector2
   CompPlayerServer* = ref object of Component
@@ -41,5 +43,10 @@ type
     assets*: AssetLoader
     reg*: Registry
     maps*: Table[WorldmapPos, Entity]
+
+    lock*: Lock
+
+    networkThread*: Thread[ptr GServer]
+    physicThread*: Thread[ptr GServer]
 
     # threadPhysic*: Thread[GServer] # codegen bug
