@@ -141,13 +141,7 @@ proc toVecsChipmunks*(points: seq[(float, float)], pos: Vector2): seq[Vect] {.in
   for point in points:
     result.add Vect(x: point[0] + pos.x, y: point[1] + pos.y)
 
-converter toChipmunksVector*(vec: Vector2): Vect {.inline.} =
-  result.x = vec.x
-  result.y = vec.y
 
-converter toRaylibVector*(vec: Vect): Vector2 {.inline.} =
-  result.x = vec.x
-  result.y = vec.y
 
 iterator gen4Lines*[T](x, y, width, height: float): tuple[aa: T, bb: T] {.inline.} =
   ## this generates 4 lines forming a rectangle

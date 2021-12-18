@@ -33,7 +33,7 @@ type
   CompMap* = ref object of Component
     space*: chipmunk7.Space
   GServer* = ref object
-    players*: Table[Id, CompPlayerServer]
+    players*: Table[Id, Entity] # Netty connection id -> Entity
     server*: Reactor
     config*: Config
     targetServerFps*: uint8

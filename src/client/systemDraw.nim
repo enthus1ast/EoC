@@ -172,7 +172,7 @@ proc systemDraw*(gclient: GClient) =
 
           drawText($compPlayer.id, interpolated.x.int - 20, interpolated.y.int - 35 , 15, Black)
           drawCircle(compPlayer.body.position.x.int, compPlayer.body.position.y.int, 5, Green)
-          drawCircle(compPlayer.body.position.x.int, compPlayer.controlBody.position.y.int, 5, Yellow)
+          drawCircle(compPlayer.controlBody.position.x.int, compPlayer.controlBody.position.y.int, 5, Yellow)
           drawText(compName.name, interpolated.x.int - 20, interpolated.y.int - 20 , 15, Black)
           drawCircle(interpolated.x.int, interpolated.y.int, 5, RED)
         except:

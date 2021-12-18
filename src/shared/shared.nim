@@ -1,11 +1,21 @@
 import nimraylib_now/mangled/raylib # Vector2
 # import nimraylib_now/mangled/raymath
 
+from chipmunk7 import Vect
 
 # const
 #   PLAYER_CONNECTED* = 0
 #   PLAYER_DISCONNECTED* = 1
 #   KindGReqPlayerMoved* = 2
+
+converter toChipmunksVector*(vec: Vector2): Vect {.inline.} =
+  result.x = vec.x
+  result.y = vec.y
+
+converter toRaylibVector*(vec: Vect): Vector2 {.inline.} =
+  result.x = vec.x
+  result.y = vec.y
+
 
 type
   ClientState* = enum
@@ -31,6 +41,9 @@ type
   GReqPlayerMoved* = object
     moveId*: int32
     vec*: Vector2
+    moveVector*: Vect
+    velocity*: Vect
+    controlBodyPos*: Vect
   GResPlayerMoved* = object
     playerId*: Id
     moveId*: int32

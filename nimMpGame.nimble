@@ -25,7 +25,7 @@ requires "https://github.com/enthus1ast/nim-chipmunk.git == 7.0.4"
 # requires "https://github.com/SkyVault/nim-tiled.git" # Tiled loader
 requires "https://github.com/enthus1ast/nim-tiled.git" # Tiled Loader
 requires "https://github.com/enthus1ast/ecs.git" # entity component system
-
+requires "winim"
 
 let
   buildClientLinux = "nim c -d:release --gc:arc --threads:on --passl:-s -d:lto src/client/testi.nim"

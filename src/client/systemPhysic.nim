@@ -19,4 +19,5 @@ proc systemPhysic*(gclient: GClient, delta: float) =
   # for entPlayer in gclient.reg.entities(CompPlayer):
   #   var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
   #   compPlayer.body.velocity = compPlayer.body.velocity * 0.95
+  # print delta
   gclient.physic.space.step(delta)

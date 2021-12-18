@@ -10,9 +10,6 @@ import systemPhysic
 const CLIENT_VERSION = 2
 
 
-
-
-
 # var screenWidth = getScreenWidth() div 2
 # var screenHeight = getScreenHeight() div 2
 
@@ -58,7 +55,7 @@ copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.le
 #   discard
 
 proc mainLoop(gclient: GClient) =
-  initPhysics()
+  # initPhysics()
 
   var idx = 0
   # var playerPos = Vector2(x: 10, y: 10) # TODO this could come from players with our user id
@@ -68,8 +65,6 @@ proc mainLoop(gclient: GClient) =
   var circle: PhysicsBody # TODO test
   while not windowShouldClose(): ##  Detect window close button or ESC key
     poll(1)
-
-    # updatePhysics()
 
     moved = false
     idx.inc
@@ -141,6 +136,8 @@ proc mainLoop(gclient: GClient) =
           compPlayer.oldpos = compPlayer.pos
           compPlayer.pos = res.pos # TODO
           compPlayer.lastmove = getMonoTime()
+          # TODO test if this is good?
+          compPlayer.controlBody.position = res.pos
       else:
         discard
 
@@ -211,6 +208,21 @@ proc mainLoop(gclient: GClient) =
       compPlayer.controlBody.position = compPlayer.body.position
       compPlayer.controlBody.velocity = vzero
 
+
+      # # TODO STUPID
+      # var gmsg = GMsg()
+      # gmsg.kind = Kind_PlayerMoved
+      # let gReqPlayerMoved = GReqPlayerMoved(
+      #   moveId: gclient.moveId,
+      #   vec: compPlayer.controlBody.position,
+      #   controlBodyPos: compPlayer.controlBody.position,
+      #   moveVector: moveVector,
+      #   velocity: compPlayer.controlBody.velocity
+      # )
+      # gmsg.data = toFlatty(gReqPlayerMoved)
+      # gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
+
+
     if (gclient.myPlayerId != 0):
       let entPlayer = gclient.myPlayer()
       let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
@@ -226,9 +238,6 @@ proc mainLoop(gclient: GClient) =
     ## Net
     if moved:
       gclient.moveId.inc
-      var gmsg = GMsg()
-      gmsg.kind = Kind_PlayerMoved
-      let gReqPlayerMoved = GReqPlayerMoved(moveId: gclient.moveId, vec: moveVector)
 
       # Client prediction set position even if not aknowleged
       let entPlayer = gclient.myPlayer()
@@ -241,10 +250,22 @@ proc mainLoop(gclient: GClient) =
       # compPlayer.body.applyImpulseAtLocalPoint(moveVector * 1000 * getFrameTime()  , v(0.0, 0.0))
       # compPlayer.body.velocity = moveVector * 100
 
-      compPlayer.controlBody.position = compPlayer.body.position + (moveVector * 10)
-      compPlayer.controlBody.velocity = moveVector * 100
+      # compPlayer.controlBody.position = compPlayer.body.position + (moveVector * 100)
+      compPlayer.controlBody.position = compPlayer.body.position + (moveVector)
+      # compPlayer.controlBody.velocity = moveVector * 100 # TODO GOOD?
+      compPlayer.controlBody.velocity = (compPlayer.controlBody.position - compPlayer.body.position) * 100  # moveVector * 100
       # compPlayer.body.
 
+      var gmsg = GMsg()
+      gmsg.kind = Kind_PlayerMoved
+      let gReqPlayerMoved = GReqPlayerMoved(
+        moveId: gclient.moveId,
+        # vec: moveVector
+        vec: compPlayer.controlBody.position,
+        controlBodyPos: compPlayer.controlBody.position,
+        moveVector: moveVector,
+        velocity: compPlayer.controlBody.velocity
+      )
 
       gmsg.data = toFlatty(gReqPlayerMoved)
       gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
@@ -265,7 +286,6 @@ proc mainLoop(gclient: GClient) =
     gclient.systemDraw()
     gclient.reg.cleanup() # periodically remove invalidated entities
 
-  closePhysics()
   closeWindow()
 
 

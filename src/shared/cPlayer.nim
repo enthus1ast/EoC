@@ -16,3 +16,4 @@ type
     angularJoint*: chipmunk7.Constraint
     controlBody*: chipmunk7.Body
     controlJoint*: chipmunk7.Constraint
+    desiredPosition*: chipmunk7.Vect
