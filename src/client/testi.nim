@@ -6,6 +6,7 @@ import ../shared/assetLoader
 import nimraylib_now
 
 import systemPhysic
+import ../shared/cMap
 
 const CLIENT_VERSION = 2
 
@@ -24,7 +25,7 @@ var gclient = GClient()
 gclient.clientState = MAIN_MENU # we start in the main menu
 gclient.nclient = newReactor()
 gclient.players = initTable[Id, Entity]()
-gclient.myPlayerId = 0
+gclient.myPlayerId = 0.Id
 gclient.connected = false
 gclient.moveid = 0
 gclient.serverMessages = newChatbox(5)
@@ -100,6 +101,7 @@ proc mainLoop(gclient: GClient) =
         print disco
         let entPlayer = gclient.players[disco.playerId]
         # gclient.destroyPlayer(entPlayer, disco.playerId)
+        echo gclient.players
         gclient.reg.destroyEntity(entPlayer)
         # gclient.reg.destroyEntity(entPlayer)
         # gclient.players.del(disco.playerId)
@@ -208,7 +210,7 @@ proc mainLoop(gclient: GClient) =
         moveVector.y *= 2 ## TODO remove this; simulates a HACK
         moveVector.x *= 2 ## TODO remove this; simulates a HACK
 
-    if (gclient.myPlayerId != 0) and (not moved): # and moveVector.length > 0:
+    if (gclient.myPlayerId != 0.Id) and (not moved): # and moveVector.length > 0:
       # TODO this whole block must be gone
       let entPlayer = gclient.myPlayer()
       let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
@@ -230,7 +232,7 @@ proc mainLoop(gclient: GClient) =
       # gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
 
 
-    if (gclient.myPlayerId != 0):
+    if (gclient.myPlayerId != 0.Id):
       let entPlayer = gclient.myPlayer()
       let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
       compPlayer.pos = compPlayer.body.position

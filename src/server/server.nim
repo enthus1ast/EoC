@@ -17,6 +17,7 @@ import ../shared/shared
 import systemPhysic
 import ../shared/deltaCalculator
 
+import ../shared/cMap
 import ../shared/cPlayer
 import std/locks
 
@@ -24,16 +25,7 @@ const SERVER_VERSION = 2
 const DEMO_MAP_POS = Vector2(x: 0, y: 0)
 # var threadPhysic: Thread[int]
 
-var gserver = GServer()
-gserver.players = initTable[Id, Entity]()
-gserver.server = newReactor("127.0.0.1", 1999)
-gserver.config = loadConfig(getAppDir() / "serverConfig.ini")
-gserver.reg = newRegistry()
-initLock(gserver.lock)
-echo "Listenting for UDP on 127.0.0.1:1999"
 
-# TODO this is just a demo map
-# var entMap =
 
 func configure(gserver: GServer) =
   gserver.targetServerFps = gserver.config.getSectionValue("net", "targetServerFps").parseInt().uint8
@@ -67,7 +59,7 @@ proc newPlayer(gserver: GServer, entMap: Entity,
   result = gserver.reg.newEntity()
   var compPlayer: CompPlayer # = new(CompPlayer)
   compPlayer = CompPlayer()
-  compPlayer.id = connection.id # the network id from netty
+  compPlayer.id = connection.id.Id # the network id from netty
   compPlayer.pos = pos
   compPlayer.oldpos = pos # on create set both equal
   compPlayer.lastmove = getMonoTime()
@@ -105,12 +97,12 @@ proc newPlayer(gserver: GServer, entMap: Entity,
   gserver.reg.addComponent(result, compPlayer)
 
   var compPlayerServer = CompPlayerServer()
-  compPlayerServer.id = connection.id
+  compPlayerServer.id = connection.id.Id
   compPlayerServer.connection = connection
   compPlayerServer.pos = v(pos.x, pos.y) #Vector2(x: (rand(50) + 20).float, y: (rand(50) + 20).float) # TODO
   gserver.reg.addComponent(result, compPlayerServer)
 
-  gserver.players[connection.id] = result
+  gserver.players[connection.id.Id] = result
   # gserver.reg.addComponent(result, CompName(name: name)) # TODO add player name
 
   ## Register destructor
@@ -121,7 +113,7 @@ proc newPlayer(gserver: GServer, entMap: Entity,
     compMap.space.removeShape(compPlayer.shape)
     compMap.space.removeBody(compPlayer.body)
     compMap.space.removeConstraint(compPlayer.controlJoint)
-    # gclient.players.del(compPlayer.id) # TODO remove PROPERLY from server reg
+    gserver.players.del(compPlayer.id) # TODO remove PROPERLY from server reg
   gserver.reg.addComponentDestructor(CompPlayer, compPlayerDestructor)
 
 # proc systemPhysic*(gserver: GServer, delta: float) =
@@ -146,7 +138,8 @@ proc newPlayer(gserver: GServer, entMap: Entity,
 #   #   sleep(sleepTime.int)
 
 
-proc main(gserver: GServer, delta: float) {.gcsafe.} =
+proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
+  var gserver = ptrgserver[]
   # sleep(250)
   # sleep(10)
   # must call tick to both read and write
@@ -180,14 +173,14 @@ proc main(gserver: GServer, delta: float) {.gcsafe.} =
     gserver.server.send(connection, toFlatty(GMsg(kind: Kind_ServerInfo, data: fGResServerInfo)))
 
     # send the new connecting player his id
-    let fgResYourIdIs = toFlatty(GResYourIdIs(playerId: connection.id))
+    let fgResYourIdIs = toFlatty(GResYourIdIs(playerId: connection.id.Id))
     gserver.server.send(connection, toFlatty(GMsg(kind: Kind_YourIdIs, data: fgResYourIdIs)))
 
     # update the new connected player at all the other players
     # let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id))
     # server.send(player, toFlatty(GMsg(kind: PLAYER_CONNECTED, data: fgResPlayerConnected)))
     for id, entPlayer in gserver.players:
-      if id != connection.id:
+      if id != connection.id.Id:
         let compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
         let res = GResPlayerConnected(playerId: id, pos: compPlayer.body.position)
         let fres = toFlatty(res)
@@ -196,14 +189,15 @@ proc main(gserver: GServer, delta: float) {.gcsafe.} =
 
     # tell every other player about the new connected player
     let compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
-    let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id, pos: compPlayer.body.position))
+    let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id.Id, pos: compPlayer.body.position))
     gserver.sendToAllClients(GMsg(kind: Kind_PlayerConnected, data: fgResPlayerConnected))
 
   for connection in gserver.server.deadConnections:
     gprint "[dead] ", connection.address, connection.id
-    gserver.players.del(connection.id)
+    let entPlayer = gserver.players[connection.id.Id]
+    gserver.reg.destroyEntity(entPlayer)
     gserver.dumpConnectedPlayers()
-    let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: connection.id))
+    let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: connection.id.Id))
     gserver.sendToAllClients(GMsg(kind: Kind_PlayerDisconnects, data: fgResPlayerDisconnects))
 
 
@@ -230,7 +224,7 @@ proc main(gserver: GServer, delta: float) {.gcsafe.} =
       #   echo "invalid move"
       #   # inform the "cheating" / desynced player
       # else:
-      let entPlayer = gserver.players[msg.conn.id]
+      let entPlayer = gserver.players[msg.conn.id.Id]
       var compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
       # gprint "Move: ", req.vec
       # compPlayer.controlBody.position = req.vec # Vect(x: req.vec.x, y: req.vec.y)
@@ -281,8 +275,7 @@ proc networkSystemThread(ptrgserver: ptr GServer) {.thread.} =
   while true:
     dc.startFrame()
     gserver.lock.acquire()
-    {.cast(gcsafe).}:
-      gserver.main(dc.delta)
+    main(addr gserver, dc.delta)
     gserver.lock.release()
     dc.endFrame()
     dc.sleep()
@@ -317,6 +310,18 @@ proc mainLoop(gserver: GServer) =
 
     # sleep(1000)
 
+
+
+var gserver = GServer()
+gserver.players = initTable[Id, Entity]()
+gserver.server = newReactor("127.0.0.1", 1999)
+gserver.config = loadConfig(getAppDir() / "serverConfig.ini")
+gserver.reg = newRegistry()
+initLock(gserver.lock)
+echo "Listenting for UDP on 127.0.0.1:1999"
+
+# TODO this is just a demo map
+# var entMap =
 
 # TODO dummy map loading in the server
 let entMap = gserver.reg.newEntity()

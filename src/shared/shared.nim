@@ -1,7 +1,10 @@
 import nimraylib_now/mangled/raylib # Vector2
+import hashes
+
 # import nimraylib_now/mangled/raymath
 
 from chipmunk7 import Vect
+
 
 import print
 export print
@@ -36,7 +39,7 @@ type
     Kind_YourIdIs
     Kind_ServerInfo
 
-  Id* = uint32
+  Id* = distinct uint32
   GMsg* = object
     kind*: GMsgKind
     data*: string
@@ -65,6 +68,12 @@ type
   GResServerInfo* = object
     targetServerFps*: uint8
     serverVersion*: uint16 # client must match
+
+
+proc hash*(a: Id): Hash {.borrow.}
+proc `$`*(a: Id): string {.borrow.}
+proc `==`*(a, b: Id): bool {.borrow.}
+
 
 func calculateFrameTime*(targetFps: int | uint8): int =
   ## calculates the time a frame must take
