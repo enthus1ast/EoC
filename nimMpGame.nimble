@@ -25,6 +25,7 @@ requires "https://github.com/enthus1ast/nim-chipmunk.git == 7.0.4"
 # requires "https://github.com/SkyVault/nim-tiled.git" # Tiled loader
 requires "https://github.com/enthus1ast/nim-tiled.git" # Tiled Loader
 requires "https://github.com/enthus1ast/ecs.git" # entity component system
+requires "https://github.com/enthus1ast/fsm.git" # finite state machine (with transitions)
 requires "winim"
 
 let
