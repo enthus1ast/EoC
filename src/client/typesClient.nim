@@ -89,7 +89,6 @@ type
 
   GClient* = ref object
     nclient*: Reactor
-    clientState*: ClientState
     fsm*: Fsm[ClientState]
     c2s*: Connection
     players*: Table[Id, Entity]

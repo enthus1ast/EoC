@@ -22,7 +22,6 @@ initWindow(screenWidth, screenHeight, "EoC")
 setTargetFPS(60)
 
 var gclient = GClient()
-gclient.clientState = MAIN_MENU # we start in the main menu
 gclient.nclient = newReactor()
 gclient.players = initTable[Id, Entity]()
 gclient.myPlayerId = 0.Id
@@ -88,7 +87,8 @@ proc mainLoop(gclient: GClient) =
         let res = fromFlatty(gmsg.data, GResYourIdIs)
         gclient.myPlayerId = res.playerId
         print gclient.myPlayerId
-        gclient.clientState = MAP
+        # gclient.clientState = MAP
+        gclient.fsm.transition(MAP)
         gclient.serverMessages.add("Connected to server yourId:" & $res.playerId)
         gclient.currentMap = gclient.newMap("assets/maps/demoTown.tmx")
       of Kind_PlayerConnected:
@@ -157,8 +157,8 @@ proc mainLoop(gclient: GClient) =
       echo "[dead] ", connection.address
       gclient.serverMessages.add("Lost server connection")
       gclient.connected = false
+      gclient.fsm.transition(MAIN_MENU)
       gclient.reg.destroyAll()
-      gclient.clientState = MAIN_MENU
 
     # Key events
     if isKeyPressed(KeyboardKey.I):
@@ -171,10 +171,10 @@ proc mainLoop(gclient: GClient) =
     #   gclient.reg.destroyEntity(gclient.currentMap)
 
     if isKeyPressed(KeyboardKey.M):
-      if gclient.clientState == MAP:
-        gclient.clientState = WORLD_MAP
-      elif gclient.clientState == WORLD_MAP:
-        gclient.clientState = MAP
+      if gclient.fsm.state == MAP:
+        gclient.fsm.transition(WORLD_MAP)
+      elif gclient.fsm.state == WORLD_MAP:
+        gclient.fsm.transition(MAP)
 
     if isKeyPressed(KeyboardKey.F11):
       toggleFullscreen()
@@ -183,7 +183,7 @@ proc mainLoop(gclient: GClient) =
 
 
     ## Key input for the map
-    if gclient.clientState == MAP:
+    if gclient.fsm.state == MAP:
       # Key events
       if isKeyDown(KeyboardKey.D):
         # echo "right"
@@ -212,12 +212,12 @@ proc mainLoop(gclient: GClient) =
         moveVector.y *= 2 ## TODO remove this; simulates a HACK
         moveVector.x *= 2 ## TODO remove this; simulates a HACK
 
-    if (gclient.myPlayerId != 0.Id) and (not moved): # and moveVector.length > 0:
-      # TODO this whole block must be gone
-      let entPlayer = gclient.myPlayer()
-      let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
-      compPlayer.controlBody.position = compPlayer.body.position
-      compPlayer.controlBody.velocity = vzero
+      if (gclient.myPlayerId != 0.Id) and (not moved): # and moveVector.length > 0:
+        # TODO this whole block must be gone
+        let entPlayer = gclient.myPlayer()
+        let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+        compPlayer.controlBody.position = compPlayer.body.position
+        compPlayer.controlBody.velocity = vzero
 
 
       # # TODO STUPID
@@ -234,10 +234,10 @@ proc mainLoop(gclient: GClient) =
       # gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
 
 
-    if (gclient.myPlayerId != 0.Id):
-      let entPlayer = gclient.myPlayer()
-      let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
-      compPlayer.pos = compPlayer.body.position
+      if (gclient.myPlayerId != 0.Id):
+        let entPlayer = gclient.myPlayer()
+        let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+        compPlayer.pos = compPlayer.body.position
     #   moveVector = (0.0, 0.0)
     #   let entPlayer = gclient.myPlayer()
     #   let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
@@ -289,7 +289,7 @@ proc mainLoop(gclient: GClient) =
       # compPlayer.controlBody.position = compPlayer.body.position
       # compPlayer.body.velocity = v(0,0)
 
-    if gclient.clientState == CONNECTING or gclient.clientState == MAP: ## TODO?
+    if gclient.fsm.state == CONNECTING or gclient.fsm.state == MAP: ## TODO?
       if idx mod 60 == 0:
         gclient.sendKeepalive()
 

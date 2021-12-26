@@ -101,7 +101,7 @@ proc systemDraw*(gclient: GClient) =
   for idx, msg in enumerate(gclient.serverMessages):
     drawText( $msg , 0, 0 + ((screenHeight div 2) + (15 * idx)), 10, Darkgray)
 
-  case gclient.clientState
+  case gclient.fsm.state
   of MAIN_MENU:
     clearBackground(Yellow)
     # if (GuiTextBox((Rectangle){ 25, 215, 125, 30 }, textBoxText, 64, textBoxEditMode)) textBoxEditMode = !textBoxEditMode;
