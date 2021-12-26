@@ -41,6 +41,7 @@ gclient.assets.loadMap("assets/maps/demoTown.tmx")
 gclient.debugDraw = true
 gclient.reg = newRegistry()
 gclient.physic = newSystemPhysic()
+gclient.fsm = newFsm[ClientState](MAIN_MENU)
 ## Loading sprites must be done after window initialization
 
 # Main Menu
@@ -156,6 +157,7 @@ proc mainLoop(gclient: GClient) =
       echo "[dead] ", connection.address
       gclient.serverMessages.add("Lost server connection")
       gclient.connected = false
+      gclient.reg.destroyAll()
       gclient.clientState = MAIN_MENU
 
     # Key events

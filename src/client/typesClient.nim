@@ -15,6 +15,7 @@ import ../shared/typesAssetLoader
 import ecs
 import typesSystemPhysic
 import nim_tiled
+import fsm
 # import
 
 export math
@@ -32,6 +33,7 @@ export chatbox
 export netty, os, flatty
 export typesAssetLoader
 export ecs
+export fsm
 
 import ../shared/cPlayer
 export cPlayer
@@ -88,6 +90,7 @@ type
   GClient* = ref object
     nclient*: Reactor
     clientState*: ClientState
+    fsm*: Fsm[ClientState]
     c2s*: Connection
     players*: Table[Id, Entity]
     myPlayerId*: Id
