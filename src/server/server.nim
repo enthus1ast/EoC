@@ -314,7 +314,7 @@ proc mainLoop(gserver: GServer) =
 
 var gserver = GServer()
 gserver.players = initTable[Id, Entity]()
-gserver.server = newReactor("127.0.0.1", 1999)
+gserver.server = newReactor("0.0.0.0", 1999)
 gserver.config = loadConfig(getAppDir() / "serverConfig.ini")
 gserver.reg = newRegistry()
 initLock(gserver.lock)

@@ -41,6 +41,23 @@ gclient.debugDraw = true
 gclient.reg = newRegistry()
 gclient.physic = newSystemPhysic()
 gclient.fsm = newFsm[ClientState](MAIN_MENU)
+gclient.fsm.allowTransition(MAIN_MENU, CONNECTING)
+gclient.fsm.allowTransition(CONNECTING, MAP)
+gclient.fsm.allowTransition(MAP, WORLD_MAP)
+gclient.fsm.allowTransition(WORLD_MAP, MAP)
+
+proc transAllToMainMenu[S](fsm: Fsm[S], fromS, toS: S) =
+  ## Transists from all states to the main menu,
+  ## here we do cleanup, so that the game client is as fresh as possible for a new connection
+  gclient.serverMessages.add("Lost server connection")
+  gclient.connected = false
+  gclient.disconnect()
+  gclient.reg.destroyAll()
+gclient.fsm.registerTransition(CONNECTING, MAIN_MENU, transAllToMainMenu[ClientState])
+gclient.fsm.registerTransition(MAP, MAIN_MENU, transAllToMainMenu[ClientState])
+gclient.fsm.registerTransition(WORLD_MAP, MAIN_MENU, transAllToMainMenu[ClientState])
+gclient.fsm.registerTransition(MAIN_MENU, MAIN_MENU, transAllToMainMenu[ClientState])
+
 ## Loading sprites must be done after window initialization
 
 # Main Menu
@@ -87,7 +104,6 @@ proc mainLoop(gclient: GClient) =
         let res = fromFlatty(gmsg.data, GResYourIdIs)
         gclient.myPlayerId = res.playerId
         print gclient.myPlayerId
-        # gclient.clientState = MAP
         gclient.fsm.transition(MAP)
         gclient.serverMessages.add("Connected to server yourId:" & $res.playerId)
         gclient.currentMap = gclient.newMap("assets/maps/demoTown.tmx")
@@ -155,14 +171,14 @@ proc mainLoop(gclient: GClient) =
       echo "[new] ", connection.address
     for connection in gclient.nclient.deadConnections:
       echo "[dead] ", connection.address
-      gclient.serverMessages.add("Lost server connection")
-      gclient.connected = false
       gclient.fsm.transition(MAIN_MENU)
-      gclient.reg.destroyAll()
 
     # Key events
     if isKeyPressed(KeyboardKey.I):
       echo "I"
+
+    if isKeyPressed(KeyboardKey.Q):
+      gclient.fsm.transition(MAIN_MENU)
 
     if isKeyPressed(KeyboardKey.O):
       gclient.debugDraw = not gclient.debugDraw
