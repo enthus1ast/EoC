@@ -8,7 +8,7 @@ import nimraylib_now
 import systemPhysic
 import ../shared/cMap
 
-const CLIENT_VERSION = 2
+const CLIENT_VERSION = 3
 
 
 # var screenWidth = getScreenWidth() div 2
@@ -28,18 +28,13 @@ gclient.myPlayerId = 0.Id
 gclient.connected = false
 gclient.moveid = 0
 gclient.serverMessages = newChatbox(5)
-gclient.camera = Camera2D(
-  target: (0.0,0.0),
-  offset: (x: screenWidth / 2, y: screenHeight / 2),
-  rotation: 0.0,
-  zoom: 1.0,
-)
 gclient.assets = newAssetLoader()
 gclient.assets.loadTexture("assets/img/test.png")
 gclient.assets.loadMap("assets/maps/demoTown.tmx")
 gclient.debugDraw = true
 gclient.reg = newRegistry()
 gclient.physic = newSystemPhysic()
+gclient.draw = newSystemDraw()
 gclient.fsm = newFsm[ClientState](MAIN_MENU)
 gclient.fsm.allowTransition(MAIN_MENU, CONNECTING)
 gclient.fsm.allowTransition(CONNECTING, MAP)
@@ -50,11 +45,10 @@ proc transAllToMainMenu[S](fsm: Fsm[S], fromS, toS: S) =
   ## Transists from all states to the main menu,
   ## here we do cleanup, so that the game client is as fresh as possible for a new connection
   gclient.serverMessages.add("Lost server connection")
+  if gclient.connected:
+    gclient.disconnect() # TODO check if disconnect is needed here.
   gclient.connected = false
-  # gclient.disconnect()
-  echo "invalidateAll"
   gclient.reg.invalidateAll()
-  echo "invalidateAll end"
 gclient.fsm.registerTransition(CONNECTING, MAIN_MENU, transAllToMainMenu[ClientState])
 gclient.fsm.registerTransition(MAP, MAIN_MENU, transAllToMainMenu[ClientState])
 gclient.fsm.registerTransition(WORLD_MAP, MAIN_MENU, transAllToMainMenu[ClientState])
@@ -82,7 +76,6 @@ proc mainLoop(gclient: GClient) =
   var moved = false
 
   # gclient.connect() ## Autoconnect for faster testing
-  var circle: PhysicsBody # TODO test
   while not windowShouldClose(): ##  Detect window close button or ESC key
     poll(1)
 
@@ -91,7 +84,6 @@ proc mainLoop(gclient: GClient) =
     gclient.nclient.tick()
     for msg in gclient.nclient.messages:
       # echo "GOT MESSAGE: ", msg.data
-
       var gmsg = fromFlatty(msg.data, GMsg)
       case gmsg.kind
       of Kind_ServerInfo:
@@ -104,11 +96,15 @@ proc mainLoop(gclient: GClient) =
           gclient.disconnect()
       of Kind_YourIdIs:
         let res = fromFlatty(gmsg.data, GResYourIdIs)
+        gclient.connected = true
         gclient.myPlayerId = res.playerId
         print gclient.myPlayerId
         gclient.fsm.transition(MAP)
         gclient.serverMessages.add("Connected to server yourId:" & $res.playerId)
         gclient.currentMap = gclient.newMap("assets/maps/demoTown.tmx")
+      of Kind_KEEPALIVE:
+        let res = fromFlatty(gmsg.data, MonoTime)
+        echo "Ping (with server delay!): ", (getMonoTime() - res).inMilliseconds - calculateFrameTime(gclient.targetServerFps)
       of Kind_PlayerConnected:
         print Kind_PlayerConnected
         let res = fromFlatty(gmsg.data, GResPlayerConnected)

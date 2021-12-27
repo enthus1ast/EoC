@@ -21,7 +21,7 @@ import ../shared/cMap
 import ../shared/cPlayer
 import std/locks
 
-const SERVER_VERSION = 2
+const SERVER_VERSION = 3
 const DEMO_MAP_POS = Vector2(x: 0, y: 0)
 # var threadPhysic: Thread[int]
 
@@ -209,7 +209,7 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
     var gmsg = fromFlatty(msg.data, GMsg)
     case gmsg.kind
     of Kind_KEEPALIVE:
-      discard
+      gserver.server.send(msg.conn, msg.data) # just send the keepalive back (contains timestamp for ping times)
     of Kind_PlayerConnected:
       gprint Kind_PlayerConnected
     of Kind_PlayerDisconnects:

@@ -14,6 +14,7 @@ import netty, os, flatty
 import ../shared/typesAssetLoader
 import ecs
 import typesSystemPhysic
+import typesSystemDraw
 import nim_tiled
 import fsm
 import options
@@ -105,13 +106,13 @@ type
     moves*: Table[int32, Vector2]
     targetServerFps*: uint8
     serverMessages*: Chatbox
-    camera*: Camera2D
     assets*: AssetLoader
     reg*: Registry
 
     ## Ideally the systems have their own datatype
     ## So that they can store their stuff und not clutter the GClient type
     physic*: SystemPhysic
+    draw*: SystemDraw
     currentMap*: Entity
 
 

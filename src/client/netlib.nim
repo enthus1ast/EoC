@@ -26,7 +26,7 @@ proc sendKeepalive*(gclient: GClient) =
   ## Sends a keepalive to the server
   var gmsg = GMsg()
   gmsg.kind = Kind_KEEPALIVE
-  gmsg.data = ""
+  gmsg.data = toFlatty(monotimes.getMonoTime())
   # echo "send keepalive"
   gclient.nclient.send(gclient.c2s, toFlatty(gmsg))
 

@@ -42,6 +42,7 @@ type
   Id* = distinct uint32
   GMsg* = object
     kind*: GMsgKind
+    compressed*: bool
     data*: string
 
   GReqPlayerMoved* = object

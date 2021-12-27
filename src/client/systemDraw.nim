@@ -7,17 +7,26 @@ import ../shared/typesAssetLoader
 import nim_tiled
 import std/intsets
 import chipmunk7
-var screenWidth = 800
-var screenHeight = 450
+import typesSystemDraw
 
-proc centerCamera(gclient: GClient) =
+proc newSystemDraw*(): SystemDraw =
+  result = SystemDraw()
+  result.screenWidth = 800
+  result.screenHeight = 450
+  result.camera = Camera2D(
+    target: (0.0,0.0),
+    offset: (x: result.screenWidth / 2, y: result.screenHeight / 2),
+    rotation: 0.0,
+    zoom: 1.0,
+  )
+proc centerCamera(systemDraw: var SystemDraw) =
   ## center the camera on the player
-  gclient.camera.offset.x = getScreenWidth() / 2
-  gclient.camera.offset.y = getScreenHeight() / 2
+  systemDraw.camera.offset.x = getScreenWidth() / 2
+  systemDraw.camera.offset.y = getScreenHeight() / 2
 
-proc getWorldMousePosition(gclient: GClient): Vector2 =
+proc getWorldMousePosition(systemDraw: SystemDraw): Vector2 =
   ## get the mouseposition respecting the camera.
-  return getScreenToWorld2D(getMousePosition(), gclient.camera)
+  return getScreenToWorld2D(getMousePosition(), systemDraw.camera)
 
 proc drawGrid(gridsize: int, offset: Vector2, color = Black) =
   drawRectangleLines(0 + offset.x.int, 0 + offset.y.int, gridsize, gridsize, color)
@@ -97,9 +106,9 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
 
 proc systemDraw*(gclient: GClient) =
   beginDrawing()
-  gclient.centerCamera()
+  gclient.draw.centerCamera()
   for idx, msg in enumerate(gclient.serverMessages):
-    drawText( $msg , 0, 0 + ((screenHeight div 2) + (15 * idx)), 10, Darkgray)
+    drawText( $msg , 0, 0 + ((gclient.draw.screenHeight div 2) + (15 * idx)), 10, Darkgray)
 
   case gclient.fsm.state
   of MAIN_MENU:
@@ -138,15 +147,15 @@ proc systemDraw*(gclient: GClient) =
     drawGrid(mapSize, (0.0, 0.0))
 
   of MAP:
-    beginMode2D gclient.camera
+    beginMode2D gclient.draw.camera
     let myPlayerOpt = gclient.myPlayer()
-    gclient.camera.target = gclient.reg.getComponent(myPlayerOpt, CompPlayer).pos
+    gclient.draw.camera.target = gclient.reg.getComponent(myPlayerOpt, CompPlayer).pos
     let curTime = getMonoTime()
     clearBackground(Black)
 
     gclient.drawTilemap(gclient.assets.maps["assets/maps/demoTown.tmx"])
 
-    let mousePos = gclient.getWorldMousePosition()
+    let mousePos = gclient.draw.getWorldMousePosition()
 
     drawCircle(mousePos.x.int, mousePos.y.int, 10, Blue)
     ## draw all players
