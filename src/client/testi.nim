@@ -51,8 +51,10 @@ proc transAllToMainMenu[S](fsm: Fsm[S], fromS, toS: S) =
   ## here we do cleanup, so that the game client is as fresh as possible for a new connection
   gclient.serverMessages.add("Lost server connection")
   gclient.connected = false
-  gclient.disconnect()
-  gclient.reg.destroyAll()
+  # gclient.disconnect()
+  echo "invalidateAll"
+  gclient.reg.invalidateAll()
+  echo "invalidateAll end"
 gclient.fsm.registerTransition(CONNECTING, MAIN_MENU, transAllToMainMenu[ClientState])
 gclient.fsm.registerTransition(MAP, MAIN_MENU, transAllToMainMenu[ClientState])
 gclient.fsm.registerTransition(WORLD_MAP, MAIN_MENU, transAllToMainMenu[ClientState])
@@ -79,7 +81,7 @@ proc mainLoop(gclient: GClient) =
   # var playerPos = Vector2(x: 10, y: 10) # TODO this could come from players with our user id
   var moved = false
 
-  gclient.connect() ## Autoconnect for faster testing
+  # gclient.connect() ## Autoconnect for faster testing
   var circle: PhysicsBody # TODO test
   while not windowShouldClose(): ##  Detect window close button or ESC key
     poll(1)

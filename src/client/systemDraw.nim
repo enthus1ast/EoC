@@ -139,7 +139,8 @@ proc systemDraw*(gclient: GClient) =
 
   of MAP:
     beginMode2D gclient.camera
-    gclient.camera.target = gclient.reg.getComponent(gclient.myPlayer(), CompPlayer).pos
+    let myPlayerOpt = gclient.myPlayer()
+    gclient.camera.target = gclient.reg.getComponent(myPlayerOpt, CompPlayer).pos
     let curTime = getMonoTime()
     clearBackground(Black)
 

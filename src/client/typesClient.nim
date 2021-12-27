@@ -16,6 +16,7 @@ import ecs
 import typesSystemPhysic
 import nim_tiled
 import fsm
+import options
 # import
 
 export math
@@ -34,6 +35,7 @@ export netty, os, flatty
 export typesAssetLoader
 export ecs
 export fsm
+export options
 
 import ../shared/cPlayer
 export cPlayer

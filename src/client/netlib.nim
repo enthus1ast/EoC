@@ -1,7 +1,16 @@
 import typesClient
 
+# func myPlayer*(gclient: GClient): Option[Entity] =
+#   try:
+#     some gclient.players[gclient.myPlayerId]
+#   except:
+#     return
+
 func myPlayer*(gclient: GClient): Entity =
-  gclient.players[gclient.myPlayerId]
+  try:
+    gclient.players[gclient.myPlayerId]
+  except:
+    raise newException(ValueError, "myPlayerId is invalid")
 
 proc connect*(gclient: GClient, host: string = "127.0.0.1", port: int = 1999) =
   gclient.fsm.transition(CONNECTING)
@@ -10,7 +19,7 @@ proc connect*(gclient: GClient, host: string = "127.0.0.1", port: int = 1999) =
   except:
     echo getCurrentExceptionMsg()
     gclient.serverMessages.add("could not connect to server! " & host & " " & $port)
-    gclient.fsm.transition(MAIN_MENU)
+    #gclient.fsm.transition(MAIN_MENU)
 
 
 proc sendKeepalive*(gclient: GClient) =
@@ -23,9 +32,11 @@ proc sendKeepalive*(gclient: GClient) =
 
 proc disconnect*(gclient: GClient) =
   ## disconnect from any server, and drop back to main screen
+  echo "Call disconnect"
   try:
     disconnect(gclient.nclient, gclient.c2s)
   except:
     echo getCurrentExceptionMsg()
-    gclient.serverMessages.add("could not connect to server! (disconnect)")
+    # gclient.serverMessages.add("could not connect to server! (disconnect)")
+  echo "Call disconnect done"
   # gclient.fsm.transition(MAIN_MENU)
