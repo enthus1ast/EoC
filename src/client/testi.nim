@@ -9,6 +9,7 @@ import systemPhysic
 import ../shared/cMap
 import ../shared/cSimpleDoor
 import ../shared/cAnimation
+import ../shared/cPlayer
 
 const CLIENT_VERSION = 3
 # const IN_CLIENT = true
@@ -31,7 +32,7 @@ gclient.serverMessages = newChatbox(5)
 gclient.assets = newAssetLoader()
 gclient.debugDraw = true
 gclient.reg = newRegistry()
-gclient.physic = newSystemPhysic()
+gclient.physic = newSystemPhysic(gclient)
 gclient.draw = newSystemDraw()
 gclient.fsm = newFsm[ClientState](MAIN_MENU)
 gclient.fsm.allowTransition(MAIN_MENU, CONNECTING)
@@ -122,7 +123,7 @@ proc mainLoop(gclient: GClient) =
 
       of Kind_KEEPALIVE:
         let res = fromFlatty(gmsg.data, MonoTime)
-        echo "Ping (with server delay!): ", (getMonoTime() - res).inMilliseconds - calculateFrameTime(gclient.targetServerFps)
+        #echo "Ping (with server delay!): ", (getMonoTime() - res).inMilliseconds - calculateFrameTime(gclient.targetServerFps)
       of Kind_PlayerConnected:
         print Kind_PlayerConnected
         let res = fromFlatty(gmsg.data, GResPlayerConnected)

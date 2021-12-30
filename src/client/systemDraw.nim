@@ -6,6 +6,7 @@ import ../shared/assetLoader
 import ../shared/typesAssetLoader
 import ../shared/cSprite
 import ../shared/cAnimation
+import ../shared/cPlayer
 import nim_tiled
 import std/intsets
 import chipmunk7

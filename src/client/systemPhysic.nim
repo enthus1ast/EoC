@@ -8,9 +8,12 @@ import typesClient
 import typesSystemPhysic
 export typesSystemPhysic
 
-proc newSystemPhysic*(): SystemPhysic =
+proc newSystemPhysic*(gclient: GClient): SystemPhysic =
   result = SystemPhysic()
   result.space = newSpace()
+  # result.space.userdata = cast[pointer](16)  #unsafeAddr gclient
+  # result.space.userdata = cast[pointer](unsafeAddr gclient)
+  result.space.userdata = unsafeAddr gclient
   result.space.gravity = v(0, 0)
   # result.space.damping = 0.1
 

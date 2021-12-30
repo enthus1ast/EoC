@@ -38,8 +38,6 @@ export ecs
 export fsm
 export options
 
-import ../shared/cPlayer
-export cPlayer
 
 type
   # CompPlayer* = ref object of Component # is player == crit (critter)?
@@ -83,10 +81,6 @@ type
     level*: int
     xp*: int
 
-
-
-
-
   # CompMap* = ref object of Component
   #   tiled*: TiledMap
 
@@ -129,7 +123,6 @@ proc toVecsChipmunks*(points: seq[(float, float)], pos: Vector2): seq[Vect] {.in
     result.add Vect(x: point[0] + pos.x, y: point[1] + pos.y)
 
 
-
 iterator gen4Lines*[T](x, y, width, height: float): tuple[aa: T, bb: T] {.inline.} =
   ## this generates 4 lines forming a rectangle
   ## generates them clockwise
@@ -138,69 +131,6 @@ iterator gen4Lines*[T](x, y, width, height: float): tuple[aa: T, bb: T] {.inline
   yield (aa: T(x: x + width, y: y),          bb: T(x: x + width, y: y + height))
   yield (aa: T(x: x + width, y: y + height), bb: T(x: x, y: y + height))
   yield (aa: T(x: x, y: y + height),         bb: T(x: x, y: y))
-
-proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string, hasCollision: bool = true): Entity =
-  ## Creates a new player entity
-  result = gclient.reg.newEntity()
-  var compPlayer: CompPlayer # = new(CompPlayer)
-  compPlayer = CompPlayer()
-  compPlayer.id = playerId # the network id from netty
-  compPlayer.pos = pos
-  compPlayer.oldpos = pos # on create set both equal
-  compPlayer.lastmove = getMonoTime()
-  let radius = 5.0 # TODO these must be configured globally
-  let mass = 1.0 # TODO these must be configured globally
-  compPlayer.body = addBody(gclient.physic.space, newBody(mass, float.high))
-  compPlayer.body.position = v(pos.x, pos.y)
-  if hasCollision:
-    compPlayer.shape = addShape(gclient.physic.space, newCircleShape(compPlayer.body, radius, vzero))
-    compPlayer.shape.friction = 0.1 # TODO these must be configured globally
-
-  ## We create a "control" body, this body we move around
-  ## on keypresses
-  compPlayer.controlBody = newKinematicBody()
-
-  ## Linear joint
-  compPlayer.controlJoint = addConstraint(gclient.physic.space,
-    newPivotJoint(compPlayer.controlBody, compPlayer.body, vzero, vzero)
-  )
-  compPlayer.controlJoint.maxBias = 0 # disable joint correction
-  compPlayer.controlJoint.errorBias = 0 # attempt to fully correct the joint each step
-  compPlayer.controlJoint.maxForce = 1000.0 # emulate linear friction
-
-  ## Angular joint (player bodies never rotate)
-  # cpConstraint *gear = cpSpaceAddConstraint(space, cpGearJointNew(tankControlBody, tankBody, 0.0f, 1.0f));
-  # cpConstraintSetErrorBias(gear, 0); // attempt to fully correct the joint each step
-  # cpConstraintSetMaxBias(gear, 1.2f);  // but limit it's angular correction rate
-  # cpConstraintSetMaxForce(gear, 50000.0f); // emulate angular friction
-  compPlayer.angularJoint = addConstraint(gclient.physic.space,
-    newGearJoint(compPlayer.controlBody, compPlayer.body, 0.0, 1.0)
-  )
-  # compPlayer.angularJoint.maxBias = float.high
-  # compPlayer.angularJoint.errorBias = 0
-  # compPlayer.angularJoint.maxForce = float.high
-  compPlayer.angularJoint.maxBias = 2147483647 # TODO is this correct?
-  compPlayer.angularJoint.errorBias = 0
-  compPlayer.angularJoint.maxForce = 2147483647 # TODO is this correct?
-
-  gclient.reg.addComponent(result, compPlayer)
-  gclient.reg.addComponent(result, CompName(name: name))
-
-  ## Register destructor
-  proc compPlayerDestructor(reg: Registry, entity: Entity, comp: Component) {.closure, gcsafe.} =
-    gprint "in implicit internal destructor: " #, CompPlayer(comp)
-    var compPlayer = CompPlayer(comp) #gclient.reg.getComponent(entity, CompPlayer)
-    gclient.physic.space.removeShape(compPlayer.shape)
-    gclient.physic.space.removeBody(compPlayer.body)
-    gclient.physic.space.removeConstraint(compPlayer.controlJoint)
-    gclient.players.del(compPlayer.id.Id) # TODO check if the same
-  gclient.reg.addComponentDestructor(CompPlayer, compPlayerDestructor)
-
-
-
-
-
-
 
 
 # iterator tileIds*(map: TiledMap): int =

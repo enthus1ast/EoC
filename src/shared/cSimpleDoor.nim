@@ -22,6 +22,7 @@ proc newVerySimpleDoor*(gobj: GClient | GServer, tilePos: Vector2, space: Space)
   var compVerySimpleDoor = CompVerySimpleDoor()
   compVerySimpleDoor.tilePos = tilePos
   compVerySimpleDoor.body = addBody(space, newStaticBody())
+  compVerySimpleDoor.body.userdata = cast[pointer](result)
   const tileSize = 32 # TODO
   compVerySimpleDoor.body.position =
     v(tilePos.x * tileSize + (tileSize / 2), tilePos.y * tileSize + (tileSize / 2))

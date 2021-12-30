@@ -5,6 +5,7 @@ import chipmunk7
 import nimraylib_now
 import nim_tiled
 import ../shared/cSimpleDoor
+import ../shared/cTriggers
 
 type
   CompTilemap* = ref object of Component
@@ -118,7 +119,13 @@ proc newMap*(gobj: GClient | GServer, mapKey: string, space: Space): Entity =
   for objectGroup in map.objectGroups:
     print "create objects for object group:", objectGroup.name
     for obj in objectGroup.objects:
-      let entTilemapObj = gobj.reg.newEntity()
+
+      var entTilemapObj: Entity
+      if objectGroup.name == "Exit": # TODO no magic strings
+        entTilemapObj = gobj.newExit() # TODO
+      else:
+        entTilemapObj = gobj.reg.newEntity() # TODO
+
       compTilemap.objects.add entTilemapObj
       var compTilemapObject = CompTilemapObject()
       if obj of TiledPolygon:
@@ -127,6 +134,7 @@ proc newMap*(gobj: GClient | GServer, mapKey: string, space: Space): Entity =
         echo "Create Poly shape"
         var poly = TiledPolygon(obj)
         compTilemapObject.body = addBody(space, newStaticBody())
+        compTilemapObject.body.userdata = cast[pointer](entTilemapObj)
         compTilemapObject.body.position = v(obj.x, obj.y)
         var vecs = poly.points.toVecsChipmunks((0.0, 0.0))
         compTilemapObject.shape = addShape(space,
