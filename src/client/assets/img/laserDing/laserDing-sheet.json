@@ -1,0 +1,22 @@
+{ "frames": [
+   {
+    "filename": "laserDing-sheet.png",
+    "frame": { "x": 0, "y": 0, "w": 128, "h": 32 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 32 },
+    "sourceSize": { "w": 128, "h": 32 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "https://github.com/LibreSprite/LibreSprite/",
+  "version": "1.2-973d0e3d-SDL",
+  "image": "C:\\Users\\david\\projects\\nimMpGame\\src\\client\\assets\\img\\laserDing\\laserDing-sheet-sheet.png",
+  "format": "RGBA8888",
+  "size": { "w": 128, "h": 32 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

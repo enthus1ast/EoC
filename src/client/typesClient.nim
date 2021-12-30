@@ -114,6 +114,7 @@ type
     physic*: SystemPhysic
     draw*: SystemDraw
     currentMap*: Entity
+    # maps*: Table[WorldmapPos, Entity]
 
 
 ## TODO these could be generic
@@ -138,7 +139,7 @@ iterator gen4Lines*[T](x, y, width, height: float): tuple[aa: T, bb: T] {.inline
   yield (aa: T(x: x + width, y: y + height), bb: T(x: x, y: y + height))
   yield (aa: T(x: x, y: y + height),         bb: T(x: x, y: y))
 
-proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Entity =
+proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string, hasCollision: bool = true): Entity =
   ## Creates a new player entity
   result = gclient.reg.newEntity()
   var compPlayer: CompPlayer # = new(CompPlayer)
@@ -151,8 +152,9 @@ proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string): Ent
   let mass = 1.0 # TODO these must be configured globally
   compPlayer.body = addBody(gclient.physic.space, newBody(mass, float.high))
   compPlayer.body.position = v(pos.x, pos.y)
-  compPlayer.shape = addShape(gclient.physic.space, newCircleShape(compPlayer.body, radius, vzero))
-  compPlayer.shape.friction = 0.1 # TODO these must be configured globally
+  if hasCollision:
+    compPlayer.shape = addShape(gclient.physic.space, newCircleShape(compPlayer.body, radius, vzero))
+    compPlayer.shape.friction = 0.1 # TODO these must be configured globally
 
   ## We create a "control" body, this body we move around
   ## on keypresses

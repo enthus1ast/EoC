@@ -21,11 +21,14 @@ import ../shared/cMap
 import ../shared/cPlayer
 import std/locks
 
+import ../shared/assetLoader
+
 const SERVER_VERSION = 3
 const DEMO_MAP_POS = Vector2(x: 0, y: 0)
 # var threadPhysic: Thread[int]
 
-
+# const IN_SERVER = true
+# const IN_CLIENT = false
 
 func configure(gserver: GServer) =
   gserver.targetServerFps = gserver.config.getSectionValue("net", "targetServerFps").parseInt().uint8
@@ -233,6 +236,9 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
       # compPlayer.controlBody.position = compPlayer.controlBody.position + (req.moveVector).normalize  # req.controlBodyPos  #compPlayer.body.position + (req.moveVector * 10)
       compPlayer.desiredPosition = req.controlBodyPos
 
+      let serverClientDiff = (compPlayer.body.position - req.bodyPos)
+      gprint serverClientDiff, serverClientDiff.length
+
       # compPlayer.controlBody.
       # compPlayer.controlBody.velocity = req.moveVector #* 100
       # compPlayer.controlBody.velocity = compPlayer.controlBody.position - compPlayer.body.position
@@ -263,7 +269,7 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
   for id, entPlayer in gserver.players:
     let compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
     # gprint entPlayer, compPlayer.body.position, compPlayer.controlBody.position, compPlayer.desiredPosition
-    let res = GResPlayerMoved(playerId: id, pos: compPlayer.body.position, moveId: -10)
+    let res = GResPlayerMoved(playerId: id, pos: compPlayer.body.position, velocity: compPlayer.controlBody.velocity, moveId: -10)
     let fres = toFlatty(res)
     let gmsg = GMsg(kind: Kind_PlayerMoved, data: fres)
     gserver.sendToAllClients(gmsg)
@@ -324,14 +330,19 @@ echo "Listenting for UDP on 127.0.0.1:1999"
 # var entMap =
 
 # TODO dummy map loading in the server
-let entMap = gserver.reg.newEntity()
-echo entMap
-gserver.maps[DEMO_MAP_POS] = entMap # Demo map is at 0,0
+# echo entMap
 var compMap = CompMap()
 compMap.space = newSpace()
 compMap.space.gravity = v(0, 0)
-gserver.reg.addComponent(entMap, compMap)
 
+## TODO load the map(s) better, this is just demo
+gserver.assets.loadMap("../client/assets/maps/demoTown.tmx", loadTextures = false)
+
+
+# let entMap = gserver.reg.newEntity()
+let entMap = gserver.newMap("../client/assets/maps/demoTown.tmx", compMap.space)
+gserver.maps[DEMO_MAP_POS] = entMap # Demo map is at 0,0
+gserver.reg.addComponent(entMap, compMap)
 
 
 

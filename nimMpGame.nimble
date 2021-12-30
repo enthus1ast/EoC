@@ -26,6 +26,7 @@ requires "https://github.com/enthus1ast/nim-chipmunk.git == 7.0.4"
 requires "https://github.com/enthus1ast/nim-tiled.git" # Tiled Loader
 requires "https://github.com/enthus1ast/ecs.git#HEAD" # entity component system
 requires "https://github.com/enthus1ast/nimFsm.git#HEAD" # finite state machine (with transitions)
+requires "https://github.com/enthus1ast/nimFreeTexturePacker.git#HEAD" # loader for the "Free texture packer"
 requires "winim"
 
 let

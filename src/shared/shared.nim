@@ -47,7 +47,7 @@ type
 
   GReqPlayerMoved* = object
     moveId*: int32
-    vec*: Vector2
+    bodyPos*: Vector2
     moveVector*: Vect
     velocity*: Vect
     controlBodyPos*: Vect
@@ -55,6 +55,8 @@ type
     playerId*: Id
     moveId*: int32
     pos*: Vector2
+    velocity*: Vect
+
 
   GReqPlayerConnected* = object
   GResPlayerConnected* = object
@@ -84,3 +86,14 @@ func calculateFrameTime*(targetFps: int | uint8): int =
 template gprint*(body: varargs[untyped]) =
   {.cast(gcsafe).}:
     print body
+
+proc addOverflow*[T](aa: var T , bb: T, maxval: T) {.inline.} =
+  if aa + bb > maxval:
+    aa = bb - aa
+  else:
+    aa += bb
+
+when isMainModule:
+  var ii = 10
+  ii.addOverflow(11, maxval = 20)
+  assert ii == 1

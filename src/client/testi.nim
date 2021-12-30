@@ -7,12 +7,12 @@ import nimraylib_now
 
 import systemPhysic
 import ../shared/cMap
+import ../shared/cSimpleDoor
+import ../shared/cAnimation
 
 const CLIENT_VERSION = 3
-
-
-# var screenWidth = getScreenWidth() div 2
-# var screenHeight = getScreenHeight() div 2
+# const IN_CLIENT = true
+# const IN_SERVER = false
 
 var screenWidth = 800
 var screenHeight = 450
@@ -29,8 +29,6 @@ gclient.connected = false
 gclient.moveid = 0
 gclient.serverMessages = newChatbox(5)
 gclient.assets = newAssetLoader()
-gclient.assets.loadTexture("assets/img/test.png")
-gclient.assets.loadMap("assets/maps/demoTown.tmx")
 gclient.debugDraw = true
 gclient.reg = newRegistry()
 gclient.physic = newSystemPhysic()
@@ -40,6 +38,18 @@ gclient.fsm.allowTransition(MAIN_MENU, CONNECTING)
 gclient.fsm.allowTransition(CONNECTING, MAP)
 gclient.fsm.allowTransition(MAP, WORLD_MAP)
 gclient.fsm.allowTransition(WORLD_MAP, MAP)
+
+proc load(gclient: GClient) =
+  ## Loads all the assets
+  echo "[+] loading!"
+  gclient.assets.loadTexture("assets/img/empty.png", "empty")
+  gclient.assets.loadTexture("assets/img/doorBlock.png", "doorBlock")
+  gclient.assets.loadTexture("assets/img/test.png")
+  gclient.assets.loadMap("assets/maps/demoTown.tmx")
+  gclient.assets.loadSpriteSheet("assets/img/laserDing/laserDing.png", "laserDing")
+  echo gclient.assets.textures
+
+gclient.load()
 
 proc transAllToMainMenu[S](fsm: Fsm[S], fromS, toS: S) =
   ## Transists from all states to the main menu,
@@ -101,14 +111,24 @@ proc mainLoop(gclient: GClient) =
         print gclient.myPlayerId
         gclient.fsm.transition(MAP)
         gclient.serverMessages.add("Connected to server yourId:" & $res.playerId)
-        gclient.currentMap = gclient.newMap("assets/maps/demoTown.tmx")
+        gclient.currentMap = gclient.newMap("assets/maps/demoTown.tmx", gclient.physic.space)
+
+        # DEMO Door
+        discard gclient.newVerySimpleDoor(Vector2(x: 0.0, y: 0.0), gclient.physic.space)
+        discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 6.0), gclient.physic.space)
+        discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 7.0), gclient.physic.space)
+        discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 8.0), gclient.physic.space)
+        discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 9.0), gclient.physic.space)
+
       of Kind_KEEPALIVE:
         let res = fromFlatty(gmsg.data, MonoTime)
         echo "Ping (with server delay!): ", (getMonoTime() - res).inMilliseconds - calculateFrameTime(gclient.targetServerFps)
       of Kind_PlayerConnected:
         print Kind_PlayerConnected
         let res = fromFlatty(gmsg.data, GResPlayerConnected)
-        var entPlayer = gclient.newPlayer(res.playerId, res.pos, "Player's Name TODO")
+
+        var hasCollision = res.playerId == gclient.myPlayerId
+        var entPlayer = gclient.newPlayer(res.playerId, res.pos, "Player's Name TODO", hasCollision = hasCollision)
         gclient.players[res.playerId] = entPlayer
       of Kind_PlayerDisconnects:
         print Kind_PlayerDisconnects
@@ -124,28 +144,59 @@ proc mainLoop(gclient: GClient) =
       of Kind_PlayerMoved:
         # print "moved"
         let res = fromFlatty(gmsg.data, GResPlayerMoved)
+
+        # let entPlayer = gclient.myPlayer()
+        let entPlayer = gclient.players[res.playerId]
+        var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+        compPlayer.controlBody.velocity = res.velocity
+        compPlayer.controlBody.position = res.pos
+
+
+        # compPlayer.oldpos = compPlayer.pos
+        # compPlayer.pos = res.pos # TODO
+        # compPlayer.lastmove = getMonoTime()
+        # # TODO test if this is good?
+        # compPlayer.controlBody.position = res.pos
+
         if res.playerId == gclient.myPlayerId:
           # It is one move from us.
           # We look in our stored moves
           # and remove the good moves
           # if there is a bad move, or server correction, or the offset is too big
           # we replay the
-          if gclient.moves.hasKey(res.moveId):
-            if gclient.moves[res.moveId] == res.pos:
-              echo "Move is good"
-              gclient.moves.del(res.moveId)
-            else:
-              print "move is bad:", res, gclient.moves[res.moveId]
-              echo "SERVER:", res.pos
-              echo "LOCAL :", gclient.moves[res.moveId]
-              ## TODO replay moves
-              ## TODO currently we just reset
-              let entPlayer = gclient.myPlayer()
-              var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
-              compPlayer.pos = res.pos
-              # gclient.players[res.playerId] = res.pos
-              gclient.moves = initTable[int32, Vector2]()
-            discard
+
+
+          ## TODO can we still do GOOD or BAD move?
+          ## for now lets try to hard set the players position when we desync
+          # let entPlayer = gclient.myPlayer()
+          # var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+          # compPlayer.controlBody.velocity = res.velocity
+          # compPlayer.controlBody.position = res.pos
+          # compPlayer.body.position = res.pos
+          block:
+            let diff = (compPlayer.body.position - res.pos)
+            if diff.length().abs > 100: # TODO what is a good value?
+              echo "[!!] Body is totally off, reset position hard!"
+              compPlayer.body.position = res.pos
+
+          # if gclient.moves.hasKey(res.moveId):
+          #   if gclient.moves[res.moveId] == res.pos:
+          #     echo "Move is good"
+          #     gclient.moves.del(res.moveId)
+          #   else:
+          #     print "move is bad:", res, gclient.moves[res.moveId]
+          #     echo "SERVER:", res.pos
+          #     echo "LOCAL :", gclient.moves[res.moveId]
+          #     ## TODO replay moves
+          #     ## TODO currently we just reset
+          #     let entPlayer = gclient.myPlayer()
+          #     var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+          #     compPlayer.pos = res.pos
+          #     # gclient.players[res.playerId] = res.pos
+          #     gclient.moves = initTable[int32, Vector2]()
+          #   discard
+
+
         else:
           ## A move for other players / crit
           let entPlayer = gclient.players[res.playerId]
@@ -198,6 +249,40 @@ proc mainLoop(gclient: GClient) =
 
     ## Key input for the map
     if gclient.fsm.state == MAP:
+
+
+      ## Cheats for testing
+      if isKeyPressed(KeyboardKey.C):
+        # disable player collision
+        let playerEnt = gclient.myPlayer()
+        let compPlayer = gclient.reg.getComponent(playerEnt, CompPlayer)
+        compPlayer.shape.filter = SHAPE_FILTER_NONE
+      if isKeyPressed(KeyboardKey.V):
+        # enable player collision
+        let playerEnt = gclient.myPlayer()
+        let compPlayer = gclient.reg.getComponent(playerEnt, CompPlayer)
+        compPlayer.shape.filter = ShapeFilter(group: nil, categories: 4294967295'u32, mask: 4294967295'u32)
+      if isKeyPressed(KeyboardKey.B):
+        # disable ALL player collision
+        for playerEnt in gclient.players.values:
+          let compPlayer = gclient.reg.getComponent(playerEnt, CompPlayer)
+          compPlayer.shape.filter = SHAPE_FILTER_NONE
+      if isKeyPressed(KeyboardKey.N):
+        # enable ALL player collision
+        for playerEnt in gclient.players.values:
+          let compPlayer = gclient.reg.getComponent(playerEnt, CompPlayer)
+          compPlayer.shape.filter = ShapeFilter(group: nil, categories: 4294967295'u32, mask: 4294967295'u32)
+
+      if isKeyPressed(KeyboardKey.J):
+        # OPEN OR CLOSE ALL DOORS
+        for entDoor in gclient.reg.entities(CompVerySimpleDoor):
+          gclient.openDoor(entDoor, open = true)
+      if isKeyPressed(KeyboardKey.K):
+        # OPEN OR CLOSE ALL DOORS
+        for entDoor in gclient.reg.entities(CompVerySimpleDoor):
+          gclient.openDoor(entDoor, open = false)
+
+
       # Key events
       if isKeyDown(KeyboardKey.D):
         # echo "right"
@@ -286,7 +371,7 @@ proc mainLoop(gclient: GClient) =
       let gReqPlayerMoved = GReqPlayerMoved(
         moveId: gclient.moveId,
         # vec: moveVector
-        vec: compPlayer.controlBody.position,
+        bodyPos: compPlayer.body.position,
         controlBodyPos: compPlayer.controlBody.position,
         moveVector: moveVector,
         velocity: compPlayer.controlBody.velocity
@@ -308,6 +393,7 @@ proc mainLoop(gclient: GClient) =
         gclient.sendKeepalive()
 
     gclient.systemPhysic(getFrameTime())
+    gclient.systemAnimation(getFrameTime())
     gclient.systemDraw()
     gclient.reg.cleanup() # periodically remove invalidated entities
 

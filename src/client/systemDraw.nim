@@ -4,10 +4,14 @@ import nimraylib_now
 import netlib
 import ../shared/assetLoader
 import ../shared/typesAssetLoader
+import ../shared/cSprite
+import ../shared/cAnimation
 import nim_tiled
 import std/intsets
 import chipmunk7
 import typesSystemDraw
+import strutils
+import freeTexturePacker
 
 proc newSystemDraw*(): SystemDraw =
   result = SystemDraw()
@@ -42,6 +46,32 @@ proc drawGrid(gridsize: int, offset: Vector2, color = Black) =
 #     height: tiledRegion.height.float,
 #   )
 
+proc drawMouseCoordsWorldmap(mapSize, quadSize: int) =
+  ## Debug draws the map coords for the worldmap.
+  let wmp = getMousePosition()
+  let mapSize = 512
+  let quadSize = 32
+  let quadCount = mapSize div quadSize
+  let xcord = ceil(wmp.x / (mapSize / quadCount)).int
+  let ycord = ceil(wmp.y / (mapSize / quadCount)).int
+
+  if (xcord > 0 and xcord <= quadCount) and (ycord > 0 and ycord <= quadCount) :
+    let msg = fmt"{xcord}x{ycord}  ({wmp.x.int}x{wmp.y.int})"
+    let mp = getMousePosition()
+    drawText(msg, mp.x.int, (mp.y + 25).int, 12, Black)
+
+proc drawMouseCoords(gclient: GClient) =
+  ## Draws the current mouse coordinates (in world coords)
+  let wmp = getWorldMousePosition(gclient.draw)
+  let mp = getMousePosition()
+  let msg = fmt"{wmp.x.int}x{wmp.y.int}"
+  drawText(msg, mp.x.int, (mp.y + 25).int, 12, White)
+
+proc drawMousePointer(gclient: GClient) =
+  ## Draws the mouse pointer
+  let mousePos = gclient.draw.getWorldMousePosition()
+  drawCircle(mousePos.x.int, mousePos.y.int, 10, Blue)
+
 proc drawTilemap*(gclient: GClient, map: TiledMap) =
   ## Draws the tilemap
   ## Draw tilemap could be optimized by generating the tilemap once,
@@ -68,8 +98,6 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
               for collisionShape in collisionShapes:
                 if collisionShape of TiledTileCollisionShapesRect:
                   let rect = TiledTileCollisionShapesRect(collisionShape)
-                  # print rect, destPos
-                  # print rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow
                   drawRectangleLines(rect.x.int + destPos.x.int, rect.y.int + destPos.y.int, rect.width.int, rect.height.int, Yellow)
                 elif collisionShape of TiledTileCollisionShapesPoint:
                   discard
@@ -83,6 +111,16 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
                   drawLineStrip(addr points[0], points.len, Yellow)
                 else:
                   discard # unsupported shape
+
+  ## Draw the objects (that have a gid)
+  for objectGroup in map.objectGroups:
+    for obj in objectGroup.objects:
+      if obj.gid != 0:
+        let region = tileset.regions[obj.gid - 1]
+        let sourceReg = Rectangle(x: region.x.float, y: region.y.float , width: region.width.float, height: region.height.float)
+        ## objects that have A GID have their origin bottom left see: https://github.com/mapeditor/tiled/issues/91
+        let destPos = Vector2(x: obj.x, y: obj.y - obj.width) #Vector2(x: (xx * map.tilewidth).float, y: (yy * map.tileheight).float)
+        drawTextureRec(texture, sourceReg, destPos, White)
 
   # Now we debug draw the polygons
   # we must later decide what we do with the polygons
@@ -101,7 +139,10 @@ proc drawTilemap*(gclient: GClient, map: TiledMap) =
           var vecs = toVecs(TiledPolygon(obj).points, (obj.x, obj.y))
           drawLineStrip(addr vecs[0], vecs.len, color)
         else: # Rectangle
-          drawRectangleLines(obj.x.int, obj.y.int, obj.width.int, obj.height.int, color)
+          if obj.gid != 0:
+            drawRectangleLines(obj.x.int, obj.y.int - obj.width.int, obj.width.int, obj.height.int, color)
+          else:
+            drawRectangleLines(obj.x.int, obj.y.int, obj.width.int, obj.height.int, color)
         # TODO draw the rest of the obj shapes
 
 proc systemDraw*(gclient: GClient) =
@@ -133,17 +174,9 @@ proc systemDraw*(gclient: GClient) =
     # all the locations
     # tents etc.
     clearBackground(White)
-    let wmp = getMousePosition()
     let mapSize = 512
     let quadSize = 32
-    let quadCount = mapSize div quadSize
-    let xcord = ceil(wmp.x / (mapSize / quadCount)).int
-    let ycord = ceil(wmp.y / (mapSize / quadCount)).int
-
-    if (xcord > 0 and xcord <= quadCount) and (ycord > 0 and ycord <= quadCount) :
-      let msg = fmt"{xcord}x{ycord}  ({wmp.x}x{wmp.y})"
-      let mp = getMousePosition()
-      drawText(msg, mp.x.int, (mp.y + 25).int, 12, Black)
+    drawMouseCoordsWorldmap(mapSize, quadSize)
     drawGrid(mapSize, (0.0, 0.0))
 
   of MAP:
@@ -155,10 +188,29 @@ proc systemDraw*(gclient: GClient) =
 
     gclient.drawTilemap(gclient.assets.maps["assets/maps/demoTown.tmx"])
 
-    let mousePos = gclient.draw.getWorldMousePosition()
+    ## Draw all sprites
+    for ent in gclient.reg.entities(CompSprite): # TODO only draw objects that are on the tilemap
+      let compSprite = gclient.reg.getComponent(ent, CompSprite)
+      if compSprite.enabled == false: continue
+      let texture = gclient.assets.textures[compSprite.img]
+      drawTexture(texture, compSprite.pixelPos.x.cint, compSprite.pixelPos.y.cint , White)
 
-    drawCircle(mousePos.x.int, mousePos.y.int, 10, Blue)
-    ## draw all players
+    ## Draw all animations (animated sprites)
+    for ent in gclient.reg.entities(CompAnimation): # TODO only draw objects that are on the tilemap
+      let compAnimation = gclient.reg.getComponent(ent, CompAnimation)
+      if compAnimation.enabled == false: continue
+      let spriteSheet = gclient.assets.spriteSheets[compAnimation.spritesheetKey]
+      let texture = gclient.assets.textures[spriteSheet.img]
+      let ff = spriteSheet.texture[compAnimation.current]
+      let sourceRect = Rectangle(x: ff.frame.x.float, y: ff.frame.y.float, width: ff.frame.w.float, height: ff.frame.h.float)
+      let destPos = Vector2(x: compAnimation.pixelPos.x, y: compAnimation.pixelPos.y)
+      drawTextureRec(texture, sourceRect, destPos, White)
+
+      # drawTexture(texture, compAnimation.pixelPos.x.cint, compAnimation.pixelPos.y.cint , White)
+
+    gclient.drawMousePointer()
+
+    ########## draw all players
     for id, entPlayer in gclient.players:
       let compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
       let compName = gclient.reg.getComponent(entPlayer, CompName)
@@ -198,4 +250,6 @@ proc systemDraw*(gclient: GClient) =
     drawText("Entities: " & $gclient.reg.validEntities.len() , 0, getScreenHeight() - 20, 10, Darkgray)
     drawText("FPS: " & $getFPS() , 0, getScreenHeight() - 10, 10, Darkgray)
     drawText("Unacknowledged moves: " & $gclient.moves.len , 10, 10, 10, Darkgray)
+    gclient.drawMouseCoords()
+
   endDrawing()
