@@ -57,10 +57,6 @@ type
     name*: string
 
   ## Some future components
-  CompHealth* = ref object of Component
-    health*: int
-    maxHealth*: int
-
   CompRadiation* = ref object of Component
     radiation*: int ## Radiation reduces the CompHealth.maxHealth permanently (until cured)
 

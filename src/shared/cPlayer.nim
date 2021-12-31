@@ -6,6 +6,7 @@ import ecs
 import nimraylib_now
 import shared
 import cTriggers
+import cHealth
 
 type
   CompPlayer* = ref object of Component # is player == crit (critter)?
@@ -69,6 +70,11 @@ proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string, hasC
 
   gclient.reg.addComponent(result, compPlayer)
   gclient.reg.addComponent(result, CompName(name: name))
+
+  var compHealth = CompHealth()
+  compHealth.maxHealth = 150
+  compHealth.health = 100
+  gclient.reg.addComponent(result, compHealth)
 
 
   ## Register player collision callback

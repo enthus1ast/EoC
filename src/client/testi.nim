@@ -10,6 +10,7 @@ import ../shared/cMap
 import ../shared/cSimpleDoor
 import ../shared/cAnimation
 import ../shared/cPlayer
+import ../shared/cHealth
 
 const CLIENT_VERSION = 3
 # const IN_CLIENT = true
@@ -115,11 +116,11 @@ proc mainLoop(gclient: GClient) =
         gclient.currentMap = gclient.newMap("assets/maps/demoTown.tmx", gclient.physic.space)
 
         # DEMO Door
-        discard gclient.newVerySimpleDoor(Vector2(x: 0.0, y: 0.0), gclient.physic.space)
-        discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 6.0), gclient.physic.space)
-        discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 7.0), gclient.physic.space)
-        discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 8.0), gclient.physic.space)
-        discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 9.0), gclient.physic.space)
+        # discard gclient.newVerySimpleDoor(Vector2(x: 0.0, y: 0.0), gclient.physic.space)
+        # discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 6.0), gclient.physic.space)
+        # discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 7.0), gclient.physic.space)
+        # discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 8.0), gclient.physic.space)
+        # discard gclient.newVerySimpleDoor(Vector2(x: 1.0, y: 9.0), gclient.physic.space)
 
       of Kind_KEEPALIVE:
         let res = fromFlatty(gmsg.data, MonoTime)
@@ -393,6 +394,7 @@ proc mainLoop(gclient: GClient) =
       if idx mod 60 == 0:
         gclient.sendKeepalive()
 
+    gclient.systemHealth(getFrameTime())
     gclient.systemPhysic(getFrameTime())
     gclient.systemAnimation(getFrameTime())
     gclient.systemDraw()

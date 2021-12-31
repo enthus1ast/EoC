@@ -12,12 +12,12 @@ type
   # OnEnterTriggerCb = proc (gobj: GClient | GServer, entA, entB: Entity) {.gcsafe, closure.}
   OnEnterTriggerCb*[T] = proc (gobj: ref T, entA, entB: Entity) # {.gcsafe, closure.}
   # OnLeaveTriggerCb = proc (gobj: GClient | GServer, entA, entB: Entity) {.gcsafe, closure.}
-  OnLeaveTriggerCb = proc (gobj: GClient, entA, entB: Entity) {.gcsafe, closure.}
+  OnLeaveTriggerCb*[T] = proc (gobj: ref T, entA, entB: Entity) {.gcsafe, closure.}
 
   CompExit* = ref object of Component
   CompTrigger*[T] = ref object of Component
     onEnter*: OnEnterTriggerCb[T]
-    # onLeave*: OnLeaveTriggerCb
+    onLeave*: OnLeaveTriggerCb[T]
 
 proc newExit*(gobj: GClient | GServer): Entity =
   ## a trigger to leave the map to the worldmap

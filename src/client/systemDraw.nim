@@ -7,6 +7,7 @@ import ../shared/typesAssetLoader
 import ../shared/cSprite
 import ../shared/cAnimation
 import ../shared/cPlayer
+import ../shared/cHealth
 import nim_tiled
 import std/intsets
 import chipmunk7
@@ -38,6 +39,14 @@ proc drawGrid(gridsize: int, offset: Vector2, color = Black) =
   for idx in 0 .. (gridsize div 32) - 1:
     drawLine((idx * 32) + offset.x.int, 0 + offset.y.int, (idx * 32) + offset.x.int, gridsize + offset.y.int, color)
     drawLine(0 + offset.x.int, (idx * 32) + offset.y.int, gridsize + offset.x.int, (idx * 32) + offset.y.int, color)
+
+proc drawSpriteFromSheet(gclient: GClient, spritesheetKey: Key, imgName: Key, destPos: Vector2) =
+  ## Draws a sprite from a spritesheet. (This is NOT used by tilemap drawing, only objects etc.)
+  let spriteSheet = gclient.assets.spriteSheets[spritesheetKey]
+  let texture = gclient.assets.textures[spriteSheet.img]
+  let ff = spriteSheet.texture[imgName]
+  let sourceRect = Rectangle(x: ff.frame.x.float, y: ff.frame.y.float, width: ff.frame.w.float, height: ff.frame.h.float)
+  drawTextureRec(texture, sourceRect, destPos, White)
 
 # converter toReg(tiledRegion: TiledRegion): Rectangle =
 #   return Rectangle(
@@ -72,6 +81,19 @@ proc drawMousePointer(gclient: GClient) =
   ## Draws the mouse pointer
   let mousePos = gclient.draw.getWorldMousePosition()
   drawCircle(mousePos.x.int, mousePos.y.int, 10, Blue)
+
+proc drawHealthBar(gclient: GClient, ent: Entity, pos: Vector2) =
+  let compHealth = gclient.reg.getComponent(ent, CompHealth)
+  let bounds = Rectangle(
+    x: (pos.x.int - 20).float,
+    y: (pos.y.int - 8).float,
+    width: 30.float,
+    height: 8.float
+  )
+  let textLeft = ""
+  let textRight = ""
+  discard progressBar(
+    bounds, textLeft, textRight, compHealth.health.float, 0, compHealth.maxHealth.float)
 
 proc drawTilemap*(gclient: GClient, map: TiledMap) =
   ## Draws the tilemap
@@ -155,11 +177,6 @@ proc systemDraw*(gclient: GClient) =
   case gclient.fsm.state
   of MAIN_MENU:
     clearBackground(Yellow)
-    # if (GuiTextBox((Rectangle){ 25, 215, 125, 30 }, textBoxText, 64, textBoxEditMode)) textBoxEditMode = !textBoxEditMode;
-    # proc textBox*(bounds: Rectangle; text: cstring; textSize: cint; editMode: bool): bool
-    # var text: cstring
-    # if text.isNil:
-    #   text = newString(512)
     if textBox(Rectangle(x: 10, y:10, width:150, height:30), gclient.txtServer , textSize = 512, editMode = true):
       echo "TEXT BOX:", gclient.txtServer
     var btnConnect = button(Rectangle(x: 10, y:50, width:50, height:30), "Connect")
@@ -187,6 +204,8 @@ proc systemDraw*(gclient: GClient) =
     let curTime = getMonoTime()
     clearBackground(Black)
 
+    ## TODO tilemap drawing could also be done by the generic sprite drawing function.
+    ## since every tile is also an entity!
     gclient.drawTilemap(gclient.assets.maps["assets/maps/demoTown.tmx"])
 
     ## Draw all sprites
@@ -199,16 +218,13 @@ proc systemDraw*(gclient: GClient) =
     ## Draw all animations (animated sprites)
     for ent in gclient.reg.entities(CompAnimation): # TODO only draw objects that are on the tilemap
       let compAnimation = gclient.reg.getComponent(ent, CompAnimation)
-      if compAnimation.enabled == false: continue
-      let spriteSheet = gclient.assets.spriteSheets[compAnimation.spritesheetKey]
-      let texture = gclient.assets.textures[spriteSheet.img]
-      let ff = spriteSheet.texture[compAnimation.current]
-      let sourceRect = Rectangle(x: ff.frame.x.float, y: ff.frame.y.float, width: ff.frame.w.float, height: ff.frame.h.float)
-      let destPos = Vector2(x: compAnimation.pixelPos.x, y: compAnimation.pixelPos.y)
-      drawTextureRec(texture, sourceRect, destPos, White)
-
-      # drawTexture(texture, compAnimation.pixelPos.x.cint, compAnimation.pixelPos.y.cint , White)
-
+      if compAnimation.enabled:
+        let destPos = Vector2(x: compAnimation.pixelPos.x, y: compAnimation.pixelPos.y)
+        gclient.drawSpriteFromSheet(
+          compAnimation.spritesheetKey,
+          compAnimation.current,
+          destPos
+        )
     gclient.drawMousePointer()
 
     ########## draw all players
@@ -240,6 +256,15 @@ proc systemDraw*(gclient: GClient) =
           drawCircle(interpolated.x.int, interpolated.y.int, 5, RED)
         except:
           echo getCurrentExceptionMsg()
+
+
+      ## Draw the health bars
+      if gclient.reg.hasComponent(entPlayer, CompHealth):
+        let pos = Vector2(
+          x: compPlayer.body.position.x.float + 3,
+          y: compPlayer.body.position.y.float - 4
+        )
+        gclient.drawHealthBar(entPlayer, pos)
 
     ##DEBUG
     # let texture = gclient.assets.textures["assets\\img\\tilesets\\demo.png"] # todo get this from the map
