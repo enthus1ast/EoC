@@ -8,20 +8,8 @@ import shared
 import cTriggers
 import cHealth
 
-type
-  CompPlayer* = ref object of Component # is player == crit (critter)?
-    id*: Id
-    oldpos*: Vector2 # we tween from oldpos
-    pos*: Vector2    # to newpos in a "server tick time step"
-    lastmove*: MonoTime #
-    body*: chipmunk7.Body
-    shape*: chipmunk7.Shape # the players main collision shape
-    dummyBody*: chipmunk7.Body
-    dummyJoint*: chipmunk7.Constraint
-    angularJoint*: chipmunk7.Constraint
-    controlBody*: chipmunk7.Body
-    controlJoint*: chipmunk7.Constraint
-    desiredPosition*: chipmunk7.Vect
+import cPlayerTypes
+export cPlayerTypes
 
 proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string, hasCollision: bool = true): Entity =
   ## Creates a new player entity
@@ -85,7 +73,7 @@ proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string, hasC
       print  space.userdata.isNil
     else:
       print space.userdata
-      var gclient = cast[ref GClient](space.userdata) # TODO this must be either GClient or GServer!
+      var gclient = cast[ref GClient](space.userdata)[] # TODO why is this neccesary,  # TODO this must be either GClient or GServer!
       var bodyA: chipmunk7.Body
       var bodyB: chipmunk7.Body
       a.bodies(addr bodyA, addr bodyB)
@@ -119,10 +107,12 @@ proc newPlayer*(gclient: GClient, playerId: Id, pos: Vector2, name: string, hasC
 
   ## Register destructor
   proc compPlayerDestructor(reg: Registry, entity: Entity, comp: Component) {.closure, gcsafe.} =
-    gprint "in implicit internal destructor: " #, CompPlayer(comp)
-    var compPlayer = CompPlayer(comp) #gclient.reg.getComponent(entity, CompPlayer)
-    gclient.physic.space.removeShape(compPlayer.shape)
+    gprint "in implicit internal destructor: ", entity #, compPlayer
+    var compPlayer = CompPlayer(comp)
+    if not compPlayer.shape.isNil:
+      # Other players do not have a shape (TODO design decition)
+      gclient.physic.space.removeShape(compPlayer.shape)
     gclient.physic.space.removeBody(compPlayer.body)
     gclient.physic.space.removeConstraint(compPlayer.controlJoint)
-    gclient.players.del(compPlayer.id.Id) # TODO check if the same
+    gclient.players.del(compPlayer.id) # TODO check if the same
   gclient.reg.addComponentDestructor(CompPlayer, compPlayerDestructor)

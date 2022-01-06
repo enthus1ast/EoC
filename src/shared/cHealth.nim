@@ -30,6 +30,5 @@ proc heal*(compHealth: CompHealth, heal: int | float) =
 
 proc systemHealth*(gobj: GClient | GServer, delta: float) =
   ## TODO this is just a dummy system for now.
-  for entHealth in gobj.reg.entities(CompHealth):
-    var compHealth = gobj.reg.getComponent(entHealth, CompHealth)
+  for (entHealth, compHealth) in gobj.reg.entitiesWithComp(CompHealth):
     compHealth.heal(10 * delta)

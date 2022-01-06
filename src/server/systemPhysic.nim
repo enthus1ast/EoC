@@ -20,8 +20,7 @@ import chipmunk7
 proc systemPhysic*(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
   var gserver = ptrgserver[]
 
-  for entPlayer in gserver.reg.entities(CompPlayer):
-    var compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
+  for (entPlayer, compPlayer) in gserver.reg.entitiesWithComp(CompPlayer):
     # gprint compPlayer.controlBody.position, compPlayer.controlBody.position - compPlayer.body.position
 
     let diff = (compPlayer.desiredPosition - compPlayer.body.position)

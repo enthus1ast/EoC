@@ -122,6 +122,7 @@ proc newMap*(gobj: GClient | GServer, mapKey: string, space: Space): Entity =
 
       var entTilemapObj: Entity
       if objectGroup.name == "Exit": # TODO no magic strings
+        echo "EXIT###############"
         entTilemapObj = gobj.newExit() # TODO
       else:
         entTilemapObj = gobj.reg.newEntity() # TODO
@@ -183,7 +184,11 @@ proc newMap*(gobj: GClient | GServer, mapKey: string, space: Space): Entity =
 
   proc compCompTilemapObjectDestructor(reg: Registry, entity: Entity, comp: Component) {.closure, gcsafe.} =
     gprint "in implicit internal CompTilemapObject destructor: "
-    space.removeShape(CompTilemapObject(comp).shape)
-    space.removeBody(CompTilemapObject(comp).body)
+
+    let compTilemapObject = CompTilemapObject(comp)
+    if not compTilemapObject.shape.isNil:
+      space.removeShape(compTilemapObject.shape)
+    if not compTilemapObject.body.isNil:
+      space.removeBody(compTilemapObject.body)
   gobj.reg.addComponentDestructor(CompTilemapObject, compCompTilemapObjectDestructor)
 

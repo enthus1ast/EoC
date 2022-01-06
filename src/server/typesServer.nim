@@ -19,12 +19,19 @@ export ecs
 import chipmunk7
 export chipmunk7
 
+import flatty
+export flatty
+
 import ../shared/typesAssetLoader
 export typesAssetLoader
 
 import ../shared/shared
 
 import std/locks
+
+import intsets
+export intsets
+
 
 type
   WorldmapPos* = Vector2
@@ -34,6 +41,7 @@ type
     pos*: Vector2
   CompMap* = ref object of Component
     space*: chipmunk7.Space
+    players*: IntSet
   GServer* = ref object
     players*: Table[Id, Entity] # Netty connection id -> Entity
     server*: Reactor

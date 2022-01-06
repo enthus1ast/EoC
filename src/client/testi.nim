@@ -80,6 +80,75 @@ copyMem(addr gclient.txtServer[0], addr txtServerDefault[0], txtServerDefault.le
 # proc send[T](gclient: GClient, obj: T) =
 #   discard
 
+proc netMovePlayer(gclient: GClient, res: GResPlayerMoved) =
+  # let entPlayer = gclient.myPlayer()
+  let entPlayer = gclient.players[res.playerId]
+  var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+  compPlayer.controlBody.velocity = res.velocity
+  compPlayer.controlBody.position = res.pos
+
+
+  # compPlayer.oldpos = compPlayer.pos
+  # compPlayer.pos = res.pos # TODO
+  # compPlayer.lastmove = getMonoTime()
+  # # TODO test if this is good?
+  # compPlayer.controlBody.position = res.pos
+
+  if res.playerId == gclient.myPlayerId:
+    # It is one move from us.
+    # We look in our stored moves
+    # and remove the good moves
+    # if there is a bad move, or server correction, or the offset is too big
+    # we replay the
+
+
+    ## TODO can we still do GOOD or BAD move?
+    ## for now lets try to hard set the players position when we desync
+    # let entPlayer = gclient.myPlayer()
+    # var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+    # compPlayer.controlBody.velocity = res.velocity
+    # compPlayer.controlBody.position = res.pos
+    # compPlayer.body.position = res.pos
+    block:
+      let diff = (compPlayer.body.position - res.pos)
+      if diff.length().abs > 100: # TODO what is a good value?
+        echo "[!!] Body is totally off, reset position hard!"
+        compPlayer.body.position = res.pos
+
+    # if gclient.moves.hasKey(res.moveId):
+    #   if gclient.moves[res.moveId] == res.pos:
+    #     echo "Move is good"
+    #     gclient.moves.del(res.moveId)
+    #   else:
+    #     print "move is bad:", res, gclient.moves[res.moveId]
+    #     echo "SERVER:", res.pos
+    #     echo "LOCAL :", gclient.moves[res.moveId]
+    #     ## TODO replay moves
+    #     ## TODO currently we just reset
+    #     let entPlayer = gclient.myPlayer()
+    #     var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+    #     compPlayer.pos = res.pos
+    #     # gclient.players[res.playerId] = res.pos
+    #     gclient.moves = initTable[int32, Vector2]()
+    #   discard
+
+
+  else:
+    ## A move for other players / crit
+    let entPlayer = gclient.players[res.playerId]
+    var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
+    compPlayer.oldpos = compPlayer.pos
+    compPlayer.pos = res.pos # TODO
+    compPlayer.lastmove = getMonoTime()
+    # TODO test if this is good?
+    compPlayer.controlBody.position = res.pos
+
+    let diff = (compPlayer.controlBody.position - compPlayer.body.position)
+    if diff.length().abs < 5:
+      compPlayer.controlBody.velocity = vzero
+    else:
+      compPlayer.controlBody.velocity = (diff.normalize() * 100) #* delta
+
 proc mainLoop(gclient: GClient) =
   # initPhysics()
 
@@ -132,6 +201,16 @@ proc mainLoop(gclient: GClient) =
         var hasCollision = res.playerId == gclient.myPlayerId
         var entPlayer = gclient.newPlayer(res.playerId, res.pos, "Player's Name TODO", hasCollision = hasCollision)
         gclient.players[res.playerId] = entPlayer
+      of Kind_PlayerWorldmap:
+        let res = fromFlatty(gmsg.data, GResPlayerWorldmap)
+        print res
+        if res.playerId == gclient.myPlayerId:
+          gclient.fsm.transition(WORLD_MAP)
+        else:
+          let entPlayer = gclient.players[res.playerId]
+          # gclient.reg.invalidateEntity(entPlayer)
+          gclient.reg.destroyEntity(entPlayer)
+
       of Kind_PlayerDisconnects:
         print Kind_PlayerDisconnects
         let disco = fromFlatty(gmsg.data, GResPlayerDisconnects)
@@ -139,81 +218,19 @@ proc mainLoop(gclient: GClient) =
         let entPlayer = gclient.players[disco.playerId]
         # gclient.destroyPlayer(entPlayer, disco.playerId)
         echo gclient.players
+        # gclient.reg.invalidateEntity(entPlayer)
         gclient.reg.destroyEntity(entPlayer)
-        # gclient.reg.destroyEntity(entPlayer)
         # gclient.players.del(disco.playerId)
         print gclient.players
       of Kind_PlayerMoved:
         # print "moved"
         let res = fromFlatty(gmsg.data, GResPlayerMoved)
 
-        # let entPlayer = gclient.myPlayer()
-        let entPlayer = gclient.players[res.playerId]
-        var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
-        compPlayer.controlBody.velocity = res.velocity
-        compPlayer.controlBody.position = res.pos
-
-
-        # compPlayer.oldpos = compPlayer.pos
-        # compPlayer.pos = res.pos # TODO
-        # compPlayer.lastmove = getMonoTime()
-        # # TODO test if this is good?
-        # compPlayer.controlBody.position = res.pos
-
-        if res.playerId == gclient.myPlayerId:
-          # It is one move from us.
-          # We look in our stored moves
-          # and remove the good moves
-          # if there is a bad move, or server correction, or the offset is too big
-          # we replay the
-
-
-          ## TODO can we still do GOOD or BAD move?
-          ## for now lets try to hard set the players position when we desync
-          # let entPlayer = gclient.myPlayer()
-          # var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
-          # compPlayer.controlBody.velocity = res.velocity
-          # compPlayer.controlBody.position = res.pos
-          # compPlayer.body.position = res.pos
-          block:
-            let diff = (compPlayer.body.position - res.pos)
-            if diff.length().abs > 100: # TODO what is a good value?
-              echo "[!!] Body is totally off, reset position hard!"
-              compPlayer.body.position = res.pos
-
-          # if gclient.moves.hasKey(res.moveId):
-          #   if gclient.moves[res.moveId] == res.pos:
-          #     echo "Move is good"
-          #     gclient.moves.del(res.moveId)
-          #   else:
-          #     print "move is bad:", res, gclient.moves[res.moveId]
-          #     echo "SERVER:", res.pos
-          #     echo "LOCAL :", gclient.moves[res.moveId]
-          #     ## TODO replay moves
-          #     ## TODO currently we just reset
-          #     let entPlayer = gclient.myPlayer()
-          #     var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
-          #     compPlayer.pos = res.pos
-          #     # gclient.players[res.playerId] = res.pos
-          #     gclient.moves = initTable[int32, Vector2]()
-          #   discard
-
-
+        if not gclient.players.hasKey(res.playerId):
+          print "Server wants me to move an unknown player!", res.playerId
         else:
-          ## A move for other players / crit
-          let entPlayer = gclient.players[res.playerId]
-          var compPlayer = gclient.reg.getComponent(entPlayer, CompPlayer)
-          compPlayer.oldpos = compPlayer.pos
-          compPlayer.pos = res.pos # TODO
-          compPlayer.lastmove = getMonoTime()
-          # TODO test if this is good?
-          compPlayer.controlBody.position = res.pos
+          gclient.netMovePlayer(res)
 
-          let diff = (compPlayer.controlBody.position - compPlayer.body.position)
-          if diff.length().abs < 5:
-            compPlayer.controlBody.velocity = vzero
-          else:
-            compPlayer.controlBody.velocity = (diff.normalize() * 100) #* delta
 
       else:
         discard

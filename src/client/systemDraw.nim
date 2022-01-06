@@ -209,15 +209,13 @@ proc systemDraw*(gclient: GClient) =
     gclient.drawTilemap(gclient.assets.maps["assets/maps/demoTown.tmx"])
 
     ## Draw all sprites
-    for ent in gclient.reg.entities(CompSprite): # TODO only draw objects that are on the tilemap
-      let compSprite = gclient.reg.getComponent(ent, CompSprite)
+    for (ent, compSprite) in gclient.reg.entitiesWithComp(CompSprite): # TODO only draw objects that are on the tilemap
       if compSprite.enabled == false: continue
       let texture = gclient.assets.textures[compSprite.img]
       drawTexture(texture, compSprite.pixelPos.x.cint, compSprite.pixelPos.y.cint , White)
 
     ## Draw all animations (animated sprites)
-    for ent in gclient.reg.entities(CompAnimation): # TODO only draw objects that are on the tilemap
-      let compAnimation = gclient.reg.getComponent(ent, CompAnimation)
+    for (ent, compAnimation) in gclient.reg.entitiesWithComp(CompAnimation): # TODO only draw objects that are on the tilemap
       if compAnimation.enabled:
         let destPos = Vector2(x: compAnimation.pixelPos.x, y: compAnimation.pixelPos.y)
         gclient.drawSpriteFromSheet(

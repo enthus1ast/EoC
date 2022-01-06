@@ -22,6 +22,5 @@ proc update(compAnimation: CompAnimation, delta: float) =
   compAnimation.current = compAnimation.keyframes[elem]
 
 proc systemAnimation*(gclient: GClient, delta: float) =
-  for entAnim in gclient.reg.entities(CompAnimation):
-    var compAnimation = gclient.reg.getComponent(entAnim, CompAnimation)
+  for (entAnim, compAnimation) in gclient.reg.entitiesWithComp(CompAnimation):
     compAnimation.update(delta)

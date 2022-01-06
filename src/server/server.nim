@@ -19,7 +19,10 @@ import ../shared/deltaCalculator
 
 import ../shared/cMap
 import ../shared/cPlayer
+import ../shared/cTriggers
 import std/locks
+import intsets
+import netlibServer
 
 import ../shared/assetLoader
 
@@ -40,13 +43,6 @@ proc dumpConnectedPlayers(gserver: GServer) =
     let compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
     let compPlayerServer = gserver.reg.getComponent(entPlayer, CompPlayerServer)
     # print id, entPlayer, compPlayer, compPlayerServer # FIXME (crash illegal storage)
-
-proc sendToAllClients*(gserver: GServer, gmsg: GMsg) =
-  ## Sends a `GMsg` to all clients connected to the server
-  let msg = toFlatty(gmsg)
-  for id, entPlayer in gserver.players:
-    var compPlayerServer = gserver.reg.getComponent(entPlayer, CompPlayerServer)
-    gserver.server.send(compPlayerServer.connection, msg)
 
 proc genServerInfo(gserver: GServer): GResServerInfo =
   GResServerInfo(
@@ -71,7 +67,10 @@ proc newPlayer(gserver: GServer, entMap: Entity,
 
 
   var compMap = gserver.reg.getComponent(entMap, CompMap)
+  compMap.players.incl result # add entPlayer to the given map
+  compPlayer.map = entMap
   compPlayer.body = addBody(compMap.space, newBody(mass, float.high))
+  compPlayer.body.userdata = cast[pointer](result)
   compPlayer.body.position = v(pos.x, pos.y)
   compPlayer.shape = addShape(compMap.space, newCircleShape(compPlayer.body, radius, vzero))
   compPlayer.shape.friction = 0.1 # TODO these must be configured globally
@@ -108,6 +107,38 @@ proc newPlayer(gserver: GServer, entMap: Entity,
   gserver.players[connection.id.Id] = result
   # gserver.reg.addComponent(result, CompName(name: name)) # TODO add player name
 
+  # TODO add CompHealth
+
+
+  ## Register player collision callback
+  proc playerCallback(a: Arbiter; space: Space; data: pointer): bool {.cdecl.} =
+    ## Collision callback definition
+    print "COLLISION" #, pgclient
+    if space.userdata.isNil:
+      print  space.userdata.isNil
+    else:
+      print space.userdata
+      var gserver = cast[ref GServer](space.userdata)[] # TODO why? Gserver is already a ref # TODO this must be either gserver or GServer!
+      var bodyA: chipmunk7.Body
+      var bodyB: chipmunk7.Body
+      a.bodies(addr bodyA, addr bodyB)
+      print bodyA.userdata, bodyB.userdata
+
+      var entA = cast[Entity](bodyA.userdata)
+      var entB = cast[Entity](bodyB.userdata)
+
+      if gserver.reg.hasComponent(entB, CompTrigger[GServer]):
+        var compTrigger = gserver.reg.getComponent(entB, CompTrigger[GServer])
+        echo "TRIGGER" # TODO this should call the associated trigger script/building function?
+        if not compTrigger.onEnter.isNil:
+          compTrigger.onEnter(gserver, entA, entB)
+        return false # trigger has no collision
+
+    result = true
+  var handler = compMap.space.addCollisionHandler(cast[CollisionType](0), cast[CollisionType](0))
+  handler.beginFunc = cast[CollisionBeginFunc](playerCallback)
+
+
   ## Register destructor
   proc compPlayerDestructor(reg: Registry, entity: Entity, comp: Component) {.closure, gcsafe.} =
     gprint "in implicit internal destructor: " #, CompPlayer(comp)
@@ -119,42 +150,9 @@ proc newPlayer(gserver: GServer, entMap: Entity,
     gserver.players.del(compPlayer.id) # TODO remove PROPERLY from server reg
   gserver.reg.addComponentDestructor(CompPlayer, compPlayerDestructor)
 
-# proc systemPhysic*(gserver: GServer, delta: float) =
-#   echo "physic tik"
-
-# # proc threadSystemPhysic*(gserver: GServer) {.thread.} =
-# proc threadSystemPhysic*(foo: int) {.thread.} =
-#   while true:
-#     echo "tick"
-#     sleep(foo)
-#   # let tar = calculateFrameTime(gserver.targetServerPhysicFps)
-#   # var delta = 0.1
-#   # while true:
-#   #   let startt = getMonoTime()
-#   #   gserver.systemPhysic(delta)
-#   #   # print "tick"
-#   #   let endt = getMonoTime()
-#   #   let took = (endt - startt).inMilliseconds
-#   #   # delta = took
-#   #   let sleepTime = (tar - took).clamp(0, 50_000)
-#   #   # print(took, sleeptime, took + sleepTime)
-#   #   sleep(sleepTime.int)
-
 
 proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
   var gserver = ptrgserver[]
-  # sleep(250)
-  # sleep(10)
-  # must call tick to both read and write
-  # usually there are no new messages, but if there are
-  # echo "tick"
-
-  # createThread(gserver.threadPhysic, threadSystemPhysic, gserver)
-  # createThread(threadPhysic, threadSystemPhysic, gserver)
-  # createThread(threadPhysic, threadSystemPhysic, 10) # TODO does not work because of raylib bug
-
-  # threadSystemPhysic
-  # gserver.systemPhysic(delta) # TODO as thread with real delta
 
   gserver.server.tick()
   for connection in gserver.server.newConnections:
@@ -166,8 +164,6 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
       pos = Vector2(x: (rand(50) + 20).float, y: (rand(50) + 20).float), # TODO get real pos from datastore
       name = "TODO NAME"
     )
-    # proc newPlayer(gserver: GServer, entMap: Entity, playerId: Id, pos: Vector2, name: string): Entity =
-
 
     gserver.dumpConnectedPlayers()
 
@@ -189,7 +185,6 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
         let fres = toFlatty(res)
         gserver.server.send(connection, toFlatty(GMsg(kind: Kind_PlayerConnected, data: fres)))
 
-
     # tell every other player about the new connected player
     let compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
     let fgResPlayerConnected = toFlatty(GResPlayerConnected(playerId: connection.id.Id, pos: compPlayer.body.position))
@@ -203,11 +198,7 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
     let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: connection.id.Id))
     gserver.sendToAllClients(GMsg(kind: Kind_PlayerDisconnects, data: fgResPlayerDisconnects))
 
-
-
-
   for msg in gserver.server.messages:
-
     # Try to unpack
     var gmsg = fromFlatty(msg.data, GMsg)
     case gmsg.kind
@@ -221,7 +212,6 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
       # gprint KindGReqPlayerMoved
       var req = fromFlatty(gmsg.data, GReqPlayerMoved)
       # gprint req
-
       ## Test vector.
       # if abs(req.vec.x) > 1 or abs(req.vec.y) > 1:
       #   echo "invalid move"
@@ -268,11 +258,12 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
   # gprint "fanout"
   for id, entPlayer in gserver.players:
     let compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
+    if compPlayer.map == WORLDMAP_ENTITY: continue
     # gprint entPlayer, compPlayer.body.position, compPlayer.controlBody.position, compPlayer.desiredPosition
     let res = GResPlayerMoved(playerId: id, pos: compPlayer.body.position, velocity: compPlayer.controlBody.velocity, moveId: -10)
     let fres = toFlatty(res)
     let gmsg = GMsg(kind: Kind_PlayerMoved, data: fres)
-    gserver.sendToAllClients(gmsg)
+    gserver.sendToAllClientsOnMap(gmsg, compPlayer.map)
 
 
 proc networkSystemThread(ptrgserver: ptr GServer) {.thread.} =
@@ -285,6 +276,10 @@ proc networkSystemThread(ptrgserver: ptr GServer) {.thread.} =
     gserver.lock.release()
     dc.endFrame()
     dc.sleep()
+
+# proc savegameSystemThread(ptrgserver: ptr GServer) {.thread.} =
+#   ## When the savegame channel is
+#   while true:
 
 proc mainLoop(gserver: GServer) =
   ## The info mainloop.
@@ -303,11 +298,16 @@ proc mainLoop(gserver: GServer) =
         let store = gserver.reg.getStore(CompPlayer)
         echo "Players: ", store.len
 
-        for entPlayer in gserver.reg.entities(CompPlayer):
-          let compPlayer = gserver.reg.getComponent(entPlayer, CompPlayer)
+        for (entPlayer, compPlayer) in gserver.reg.entitiesWithComp(CompPlayer):
           echo entPlayer, compPlayer[]
       except:
         echo getCurrentExceptionMsg()
+      gserver.lock.release()
+    of "maps":
+      gserver.lock.acquire()
+      for worldmapPos, entMap in gserver.maps:
+        let compMap = gserver.reg.getComponent(entMap, CompMap)
+        print worldmapPos, entMap, compMap.players
       gserver.lock.release()
     of "lock":
       gserver.lock.acquire()
@@ -326,25 +326,34 @@ gserver.reg = newRegistry()
 initLock(gserver.lock)
 echo "Listenting for UDP on 127.0.0.1:1999"
 
-# TODO this is just a demo map
-# var entMap =
+
+
+## TODO load the map(s) better, this is just demo
+gserver.assets.loadMap("../client/assets/maps/demoTown.tmx", loadTextures = false)
+gserver.assets.loadMap("../client/assets/maps/demoTown2.tmx", loadTextures = false)
+
+# let entMap = gserver.reg.newEntity()
 
 # TODO dummy map loading in the server
 # echo entMap
 var compMap = CompMap()
 compMap.space = newSpace()
+compMap.space.userdata = unsafeAddr gserver
 compMap.space.gravity = v(0, 0)
-
-## TODO load the map(s) better, this is just demo
-gserver.assets.loadMap("../client/assets/maps/demoTown.tmx", loadTextures = false)
-
-
-# let entMap = gserver.reg.newEntity()
 let entMap = gserver.newMap("../client/assets/maps/demoTown.tmx", compMap.space)
 gserver.maps[DEMO_MAP_POS] = entMap # Demo map is at 0,0
 gserver.reg.addComponent(entMap, compMap)
 
 
+# TODO dummy map loading in the server
+# echo entMap
+var compMap2 = CompMap()
+compMap2.space = newSpace()
+compMap2.space.userdata = unsafeAddr gserver
+compMap2.space.gravity = v(0, 0)
+let entMap2 = gserver.newMap("../client/assets/maps/demoTown2.tmx", compMap.space)
+gserver.maps[DEMO_MAP_POS + Vector2(x: -1, y: 0 )] = entMap2 # Demo map is at 0,0
+gserver.reg.addComponent(entMap2, compMap2)
 
 gserver.configure()
 createThread(gserver.physicThread, systemPhysicThread, addr gserver)

@@ -1,5 +1,6 @@
 import nimraylib_now/mangled/raylib # Vector2
 import hashes
+import ecs
 
 # import nimraylib_now/mangled/raymath
 
@@ -8,6 +9,9 @@ from chipmunk7 import Vect
 
 import print
 export print
+
+const
+  WORLDMAP_ENTITY* = -1.Entity
 
 # const
 #   PLAYER_CONNECTED* = 0
@@ -38,6 +42,7 @@ type
     Kind_PlayerMoved
     Kind_YourIdIs
     Kind_ServerInfo
+    Kind_PlayerWorldmap
 
   Id* = distinct uint32
   GMsg* = object
@@ -57,6 +62,10 @@ type
     pos*: Vector2
     velocity*: Vect
 
+  GResPlayerWorldmap* = object
+    ## tells all the players that the current player moved to the worldmap
+    ## clients should remove the player from the map? Or should the server send an additional disconnect command?
+    playerId*: Id
 
   GReqPlayerConnected* = object
   GResPlayerConnected* = object
