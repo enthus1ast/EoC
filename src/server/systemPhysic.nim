@@ -13,6 +13,7 @@ import std/[os, times, monotimes]
 import typesServer
 import ../shared/shared
 import ../shared/cPlayer
+import ../shared/cMapTypes
 import ../shared/deltaCalculator
 import chipmunk7
 

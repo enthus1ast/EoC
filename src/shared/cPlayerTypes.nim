@@ -21,3 +21,9 @@ type
     controlJoint*: chipmunk7.Constraint
     desiredPosition*: chipmunk7.Vect
     map*: Entity # the map the player is on
+
+  CompWorldmapPlayer* = ref object of Component
+    id*: Id
+    oldpos*: Vector2 # we tween from oldpos
+    pos*: Vector2    # to newpos in a "server tick time step"
+    # lastmove*: MonoTime #

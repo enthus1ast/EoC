@@ -37,6 +37,7 @@ proc newExit*(gobj: GClient | GServer): Entity =
       echo "SERVER"
       echo "Server must send transition to: entA:", entA
       gobj.movePlayerToWorldmap(entA)
+      gobj.reg.trigger(EvPlayerMovedToWorldmap(entPlayer: entA, id: 0.Id))
       echo "DONE CALLING"
 
 

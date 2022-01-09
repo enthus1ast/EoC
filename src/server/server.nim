@@ -1,37 +1,28 @@
-import print
-import os
-import flatty
-import tables
-#import nimraylib_now # /mangled/raymath # Vector2
+import print, os, flatty, tables, intsets, asyncdispatch
 import nimraylib_now/mangled/raymath # Vector2
 import nimraylib_now/mangled/raylib  # Vector2
-import std/monotimes
-import std/times
-# import std/parsecfg
-import std/strutils
-import std/random
-import asyncdispatch
-import typesServer
-import std/locks
-import ../shared/shared
-import systemPhysic
-import ../shared/deltaCalculator
+import std/[monotimes, times, strutils, random, locks]
 
+import typesServer
+
+# Components
+import ../shared/shared
+import ../shared/deltaCalculator
 import ../shared/cMap
 import ../shared/cPlayer
 import ../shared/cTriggers
-import std/locks
-import intsets
-import netlibServer
 
+#Systems
+import systemPhysic
+import systemMaps
+
+# Aux
+import netlibServer
+import clisystem
+import publicApi
 import ../shared/assetLoader
 
 const SERVER_VERSION = 3
-const DEMO_MAP_POS = Vector2(x: 0, y: 0)
-# var threadPhysic: Thread[int]
-
-# const IN_SERVER = true
-# const IN_CLIENT = false
 
 func configure(gserver: GServer) =
   gserver.targetServerFps = gserver.config.getSectionValue("net", "targetServerFps").parseInt().uint8
@@ -117,6 +108,7 @@ proc newPlayer(gserver: GServer, entMap: Entity,
     if space.userdata.isNil:
       print  space.userdata.isNil
     else:
+      print space.userdata.isNil
       print space.userdata
       var gserver = cast[ref GServer](space.userdata)[] # TODO why? Gserver is already a ref # TODO this must be either gserver or GServer!
       var bodyA: chipmunk7.Body
@@ -124,8 +116,18 @@ proc newPlayer(gserver: GServer, entMap: Entity,
       a.bodies(addr bodyA, addr bodyB)
       print bodyA.userdata, bodyB.userdata
 
-      var entA = cast[Entity](bodyA.userdata)
-      var entB = cast[Entity](bodyB.userdata)
+      var entA =
+        if not bodyA.userdata.isNil:
+          cast[Entity](bodyA.userdata)
+        else:
+          0.Entity
+
+      var entB =
+        if not bodyB.userdata.isNil:
+          cast[Entity](bodyB.userdata)
+        else:
+          0.Entity
+      return
 
       if gserver.reg.hasComponent(entB, CompTrigger[GServer]):
         var compTrigger = gserver.reg.getComponent(entB, CompTrigger[GServer])
@@ -151,9 +153,8 @@ proc newPlayer(gserver: GServer, entMap: Entity,
   gserver.reg.addComponentDestructor(CompPlayer, compPlayerDestructor)
 
 
-proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
+proc mainNetworkTick(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
   var gserver = ptrgserver[]
-
   gserver.server.tick()
   for connection in gserver.server.newConnections:
     echo "[new] ", connection.address
@@ -193,6 +194,7 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
   for connection in gserver.server.deadConnections:
     gprint "[dead] ", connection.address, connection.id
     let entPlayer = gserver.players[connection.id.Id]
+    # gserver.reg.trigger(EvPlayerDisconnected(entPlayer: entPlayer, id: connection.id.Id, reason: "Los connection."))
     gserver.reg.destroyEntity(entPlayer)
     gserver.dumpConnectedPlayers()
     let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: connection.id.Id))
@@ -208,6 +210,8 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
       gprint Kind_PlayerConnected
     of Kind_PlayerDisconnects:
       gprint Kind_PlayerDisconnects
+      let entPlayer = gserver.players[msg.conn.id.Id]
+      # gserver.reg.trigger(EvPlayerDisconnected(id: msg.conn.id.Id, entPlayer: entPlayer, reason: "Client send disconnect."))
     of Kind_PlayerMoved:
       # gprint KindGReqPlayerMoved
       var req = fromFlatty(gmsg.data, GReqPlayerMoved)
@@ -269,10 +273,20 @@ proc main(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
 proc networkSystemThread(ptrgserver: ptr GServer) {.thread.} =
   var gserver = ptrgserver[]
   var dc = newDeltaCalculator(gserver.targetServerFps.int, timerAccuracy = -1)
+
+  # gserver.reg.connect(EvPlayerMovedToWorldmap,
+  #   proc (ev: EvPlayerMovedToWorldmap) = echo ev
+  # )
+
+  # gserver.reg.connect(EvPlayerDisconnected,
+  #   proc (ev: EvPlayerDisconnected) =
+  #     gprint "[NETWORK THREAD] Player disconnected :", ev
+  # )
+
   while true:
     dc.startFrame()
     gserver.lock.acquire()
-    main(addr gserver, dc.delta)
+    mainNetworkTick(addr gserver, dc.delta)
     gserver.lock.release()
     dc.endFrame()
     dc.sleep()
@@ -281,40 +295,54 @@ proc networkSystemThread(ptrgserver: ptr GServer) {.thread.} =
 #   ## When the savegame channel is
 #   while true:
 
-proc mainLoop(gserver: GServer) =
-  ## The info mainloop.
+proc doCli(gserver: GServer) =
+  let ci = cli()
+  case ci.kind
+  of help:
+    echo "HELP!!"
+  # of "kickall":
+  of players:
+    gserver.lock.acquire()
+    try:
+      let store = gserver.reg.getStore(CompPlayer)
+      echo "Players: ", store.len
+
+      for (entPlayer, compPlayer) in gserver.reg.entitiesWithComp(CompPlayer):
+        echo entPlayer, compPlayer[]
+    except:
+      echo getCurrentExceptionMsg()
+    gserver.lock.release()
+  of maps:
+    gserver.lock.acquire()
+    for worldmapPos, entMap in gserver.maps:
+      let compMap = gserver.reg.getComponent(entMap, CompMap)
+      print worldmapPos, entMap, compMap.players
+    gserver.lock.release()
+  of lock:
+    gserver.lock.acquire()
+  of unlock:
+    gserver.lock.release()
+  of tele:
+    gserver.teleport(ci.teleEnt, ci.teleXX, ci.teleYY)
+  of teleWorldmap:
+    gserver.teleportWorldmap(ci.teleWorldmapEnt, ci.teleWorldmapXX, ci.teleWorldmapYY)
+  of toWorldmap:
+    gserver.movePlayerToWorldmap(ci.toWorldmapEnt)
+  else:
+    discard
+
+proc cliLoop(gserver: GServer) =
+  ## The info cliLoop.
   ## All the work is done in threads.
   while true:
-    echo "Info"
-    var cmd = stdin.readLine()
-    case cmd
-    of "help":
-      echo "HELP!!"
-    # of "kickall":
+    try:
+      when defined(noCli):
+        sleep(1000)
+      else:
+        gserver.doCli()
+    except:
+      echo getCurrentExceptionMsg()
 
-    of "players":
-      gserver.lock.acquire()
-      try:
-        let store = gserver.reg.getStore(CompPlayer)
-        echo "Players: ", store.len
-
-        for (entPlayer, compPlayer) in gserver.reg.entitiesWithComp(CompPlayer):
-          echo entPlayer, compPlayer[]
-      except:
-        echo getCurrentExceptionMsg()
-      gserver.lock.release()
-    of "maps":
-      gserver.lock.acquire()
-      for worldmapPos, entMap in gserver.maps:
-        let compMap = gserver.reg.getComponent(entMap, CompMap)
-        print worldmapPos, entMap, compMap.players
-      gserver.lock.release()
-    of "lock":
-      gserver.lock.acquire()
-    of "unlock":
-      gserver.lock.release()
-
-    # sleep(1000)
 
 
 
@@ -327,35 +355,36 @@ initLock(gserver.lock)
 echo "Listenting for UDP on 127.0.0.1:1999"
 
 
+gserver.systemMaps = gserver.newSystemMaps()
 
-## TODO load the map(s) better, this is just demo
-gserver.assets.loadMap("../client/assets/maps/demoTown.tmx", loadTextures = false)
-gserver.assets.loadMap("../client/assets/maps/demoTown2.tmx", loadTextures = false)
+# ## TODO load the map(s) better, this is just demo
+# gserver.assets.loadMap("../client/assets/maps/demoTown.tmx", loadTextures = false)
+# gserver.assets.loadMap("../client/assets/maps/demoTown2.tmx", loadTextures = false)
 
 # let entMap = gserver.reg.newEntity()
 
 # TODO dummy map loading in the server
 # echo entMap
-var compMap = CompMap()
-compMap.space = newSpace()
-compMap.space.userdata = unsafeAddr gserver
-compMap.space.gravity = v(0, 0)
-let entMap = gserver.newMap("../client/assets/maps/demoTown.tmx", compMap.space)
-gserver.maps[DEMO_MAP_POS] = entMap # Demo map is at 0,0
-gserver.reg.addComponent(entMap, compMap)
+# var compMap = CompMap()
+# compMap.space = newSpace()
+# compMap.space.userdata = unsafeAddr gserver
+# compMap.space.gravity = v(0, 0)
+# let entMap = gserver.newMap("../client/assets/maps/demoTown.tmx", compMap.space)
+# gserver.maps[DEMO_MAP_POS] = entMap # Demo map is at 0,0
+# gserver.reg.addComponent(entMap, compMap)
 
 
-# TODO dummy map loading in the server
-# echo entMap
-var compMap2 = CompMap()
-compMap2.space = newSpace()
-compMap2.space.userdata = unsafeAddr gserver
-compMap2.space.gravity = v(0, 0)
-let entMap2 = gserver.newMap("../client/assets/maps/demoTown2.tmx", compMap.space)
-gserver.maps[DEMO_MAP_POS + Vector2(x: -1, y: 0 )] = entMap2 # Demo map is at 0,0
-gserver.reg.addComponent(entMap2, compMap2)
+# # TODO dummy map loading in the server
+# # echo entMap
+# var compMap2 = CompMap()
+# compMap2.space = newSpace()
+# compMap2.space.userdata = unsafeAddr gserver
+# compMap2.space.gravity = v(0, 0)
+# let entMap2 = gserver.newMap("../client/assets/maps/demoTown2.tmx", compMap.space)
+# gserver.maps[DEMO_MAP_POS + Vector2(x: -1, y: 0 )] = entMap2 # Demo map is at 0,0
+# gserver.reg.addComponent(entMap2, compMap2)
 
 gserver.configure()
 createThread(gserver.physicThread, systemPhysicThread, addr gserver)
 createThread(gserver.networkThread, networkSystemThread, addr gserver)
-gserver.mainLoop()
+gserver.cliLoop()

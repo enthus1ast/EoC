@@ -1,6 +1,13 @@
 import nimraylib_now/mangled/raylib # Vector2
 import hashes
+
 import ecs
+export ecs
+
+import intsets
+export intsets
+
+
 
 # import nimraylib_now/mangled/raymath
 
@@ -81,6 +88,14 @@ type
     targetServerFps*: uint8
     serverVersion*: uint16 # client must match
 
+  # Events
+  EvPlayerMovedToWorldmap* = object
+    entPlayer*: Entity
+    id*: Id
+  EvPlayerDisconnected* = object
+    entPlayer*: Entity
+    id*: Id
+    reason*: string
 
 proc hash*(a: Id): Hash {.borrow.}
 proc `$`*(a: Id): string {.borrow.}

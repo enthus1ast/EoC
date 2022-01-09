@@ -25,6 +25,9 @@ export flatty
 import ../shared/typesAssetLoader
 export typesAssetLoader
 
+import typesSystemMaps
+export typesSystemMaps
+
 import ../shared/shared
 
 import std/locks
@@ -39,9 +42,6 @@ type
     id*: Id
     connection*: Connection
     pos*: Vector2
-  CompMap* = ref object of Component
-    space*: chipmunk7.Space
-    players*: IntSet
   GServer* = ref object
     players*: Table[Id, Entity] # Netty connection id -> Entity
     server*: Reactor
@@ -51,6 +51,7 @@ type
     assets*: AssetLoader
     reg*: Registry
     maps*: Table[WorldmapPos, Entity]
+    systemMaps*: SystemMaps
 
     lock*: Lock
 
