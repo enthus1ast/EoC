@@ -194,7 +194,9 @@ proc mainNetworkTick(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
   for connection in gserver.server.deadConnections:
     gprint "[dead] ", connection.address, connection.id
     let entPlayer = gserver.players[connection.id.Id]
-    # gserver.reg.trigger(EvPlayerDisconnected(entPlayer: entPlayer, id: connection.id.Id, reason: "Los connection."))
+    gserver.lock.acquire()
+    gserver.reg.trigger(EvPlayerDisconnected(entPlayer: entPlayer, id: connection.id.Id, reason: "Lost connection.", pgserver: unsafeAddr gserver))
+    gserver.lock.release()
     gserver.reg.destroyEntity(entPlayer)
     gserver.dumpConnectedPlayers()
     let fgResPlayerDisconnects = toFlatty(GResPlayerDisconnects(playerId: connection.id.Id))
@@ -211,7 +213,9 @@ proc mainNetworkTick(ptrgserver: ptr GServer, delta: float) {.gcsafe.} =
     of Kind_PlayerDisconnects:
       gprint Kind_PlayerDisconnects
       let entPlayer = gserver.players[msg.conn.id.Id]
-      # gserver.reg.trigger(EvPlayerDisconnected(id: msg.conn.id.Id, entPlayer: entPlayer, reason: "Client send disconnect."))
+      gserver.lock.acquire()
+      gserver.reg.trigger(EvPlayerDisconnected(id: msg.conn.id.Id, entPlayer: entPlayer, reason: "Client send disconnect.", pgserver: unsafeAddr gserver))
+      gserver.lock.release()
     of Kind_PlayerMoved:
       # gprint KindGReqPlayerMoved
       var req = fromFlatty(gmsg.data, GReqPlayerMoved)
@@ -274,14 +278,14 @@ proc networkSystemThread(ptrgserver: ptr GServer) {.thread.} =
   var gserver = ptrgserver[]
   var dc = newDeltaCalculator(gserver.targetServerFps.int, timerAccuracy = -1)
 
-  # gserver.reg.connect(EvPlayerMovedToWorldmap,
-  #   proc (ev: EvPlayerMovedToWorldmap) = echo ev
-  # )
+  gserver.reg.connect(EvPlayerMovedToWorldmap,
+    proc (ev: EvPlayerMovedToWorldmap) = echo ev
+  )
 
-  # gserver.reg.connect(EvPlayerDisconnected,
-  #   proc (ev: EvPlayerDisconnected) =
-  #     gprint "[NETWORK THREAD] Player disconnected :", ev
-  # )
+  gserver.reg.connect(EvPlayerDisconnected,
+    proc (ev: EvPlayerDisconnected) =
+      gprint "[NETWORK THREAD] Player disconnected :", ev
+  )
 
   while true:
     dc.startFrame()
@@ -291,9 +295,6 @@ proc networkSystemThread(ptrgserver: ptr GServer) {.thread.} =
     dc.endFrame()
     dc.sleep()
 
-# proc savegameSystemThread(ptrgserver: ptr GServer) {.thread.} =
-#   ## When the savegame channel is
-#   while true:
 
 proc doCli(gserver: GServer) =
   let ci = cli()
@@ -344,8 +345,6 @@ proc cliLoop(gserver: GServer) =
       echo getCurrentExceptionMsg()
 
 
-
-
 var gserver = GServer()
 gserver.players = initTable[Id, Entity]()
 gserver.server = newReactor("0.0.0.0", 1999)
@@ -354,35 +353,7 @@ gserver.reg = newRegistry()
 initLock(gserver.lock)
 echo "Listenting for UDP on 127.0.0.1:1999"
 
-
-gserver.systemMaps = gserver.newSystemMaps()
-
-# ## TODO load the map(s) better, this is just demo
-# gserver.assets.loadMap("../client/assets/maps/demoTown.tmx", loadTextures = false)
-# gserver.assets.loadMap("../client/assets/maps/demoTown2.tmx", loadTextures = false)
-
-# let entMap = gserver.reg.newEntity()
-
-# TODO dummy map loading in the server
-# echo entMap
-# var compMap = CompMap()
-# compMap.space = newSpace()
-# compMap.space.userdata = unsafeAddr gserver
-# compMap.space.gravity = v(0, 0)
-# let entMap = gserver.newMap("../client/assets/maps/demoTown.tmx", compMap.space)
-# gserver.maps[DEMO_MAP_POS] = entMap # Demo map is at 0,0
-# gserver.reg.addComponent(entMap, compMap)
-
-
-# # TODO dummy map loading in the server
-# # echo entMap
-# var compMap2 = CompMap()
-# compMap2.space = newSpace()
-# compMap2.space.userdata = unsafeAddr gserver
-# compMap2.space.gravity = v(0, 0)
-# let entMap2 = gserver.newMap("../client/assets/maps/demoTown2.tmx", compMap.space)
-# gserver.maps[DEMO_MAP_POS + Vector2(x: -1, y: 0 )] = entMap2 # Demo map is at 0,0
-# gserver.reg.addComponent(entMap2, compMap2)
+gserver.systemMaps = gserver.newSystemMaps(unsafeAddr gserver)
 
 gserver.configure()
 createThread(gserver.physicThread, systemPhysicThread, addr gserver)

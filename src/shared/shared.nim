@@ -96,6 +96,7 @@ type
     entPlayer*: Entity
     id*: Id
     reason*: string
+    pgserver*: pointer
 
 proc hash*(a: Id): Hash {.borrow.}
 proc `$`*(a: Id): string {.borrow.}
